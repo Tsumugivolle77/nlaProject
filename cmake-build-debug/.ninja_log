@@ -1,0 +1,4 @@
+# ninja log v6
+1	60	1736365430712206507	build.ninja	b645a204eb484ab5
+1	853	1736365435241797500	CMakeFiles/numerical_linear_algebra1.dir/main.cpp.o	3b202732eba6bb61
+855	893	1736365436095937033	numerical_linear_algebra1	b1e946048160f0af
