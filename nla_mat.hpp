@@ -1,33 +1,13 @@
-README file for my project and also for the final submission.
+//
+// Created by Tsumugi on 13.01.25.
+//
 
-## Prerequisites for compiling for project successfully
-User should set `-std=c++17` since I used some `c++17` features such as:
+#ifndef NLA_MAT_H
+#define NLA_MAT_H
 
-- Variable with template arguments;
-- Typedef with templates arguments,
-
-like: `std::enable_if_t` instead of `std::enable_if::type`. This is not a must but would make my code more beautiful.
-
-If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::fmt`.
-
-## Something unimportant
-To enable printing additional information or make the code more debug-friendly:
-
-`#define DEBUG` at the beginning of the `main.cpp`
-
-or
-
-`add_compile_option(-DDEBUG)` in `CMakeLists.txt`
-
-or 
-
-`g++ <blabla> -DDEBUG` in your terminal, etc.
-
-## class `nla_mat`
-So I wrote a class to make my codes look better (more professional :D), hiding the details behind member functions.
-```cpp
 template<typename Mat = arma::cx_mat>
-class nla_mat {
+class nla_mat
+{
 public:
     using elem_type = typename Mat::elem_type;
     using list      = std::initializer_list<elem_type>;
@@ -54,8 +34,8 @@ private:
 
         auto x1 = x[0];
         auto phase = std::arg(x1);
-        auto e1 = cx_colvec(x.n_rows);
-        e1[0] = 1.;
+        auto e1      = cx_colvec(x.n_rows);
+        e1[0]        = 1.;
         const auto I = cx_mat(x.n_rows, x.n_rows, fill::eye);
 
         const cx_vec w = x + std::exp(1i * phase) * norm(x) * e1;
@@ -85,41 +65,25 @@ private:
         return I - 2 * w * wh / dot(wh, w);
     }
 };
-```
-At the beginning of the class I defined alias for types and declared some member functions including constructors and so on. The implementation would be introduced above.
 
-Then I introduced a static member function `get_householder_mat` to compute the Householder Matrix from a given vector `x`. It has two overloads. For the complex vector it will call the first overload, otherwise the second will be called.
-
-I used `std::enable_if_t` for deciding which version to be called, which is based upon `SFINAE` in C++. But factually in this case, we can simply use function overload (they are equivalent this time). It anyway serves as a watermark for my own version :P.
-
-### Utility and member functions
-This part is trivial and has nothing notable to talk about. We can just skip to the next part.
-#### operator<<()
-This operator overload is for applying like `std::cout` or `fout` on our `nla_mat` object.
-```cpp
 // printing nla_mat
 template <typename Mat>
 std::ostream &operator<<(std::ostream &os, const nla_mat<Mat> &mat) {
     return os << mat.get_mat();
 }
-```
 
-#### constructors
-```cpp
 template<typename Mat>
 nla_mat<Mat>::nla_mat(Mat &&m): matx(m) { }
 
 template<typename Mat>
 nla_mat<Mat>::nla_mat(lists &&li): matx(li) { }
-```
 
-### SUBTASK ONE: Hermitian to Symmetric Tridiagonal
-One of the most important and interesting property of Hermitian Matrix is that all its eigenvalues are real.
+template<typename Mat>
+Mat       &nla_mat<Mat>::get_mat() { return matx; }
 
-We can also derive from this another statement: Hermitian Matrix is similar to a Symmetric Tridiagonal Matrix by using some Unitary Transform.
+template<typename Mat>
+const Mat &nla_mat<Mat>::get_mat() const { return matx; }
 
-Transforming into Hermitian Tridiagonal Matrix is straightforward by applying Householder. However, imaginary parts of the sub- and superdiagonal entries still remain.
-```cpp
 // get the Hessenberg form of matx
 template<typename Mat>
 nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
@@ -148,11 +112,7 @@ nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
 
     return hess;
 }
-```
 
-In order to eliminate these imaginary part we need the help of another Diagonal Unitary Matrix. In the following code, you will see how the Diagonal Unitary Matrix is constructed.
-
-```cpp
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `A.to_hessenberg()` into Real Symmetric Tridiagonal
  **  @A: Hermitian Tridiagonal
@@ -182,4 +142,5 @@ hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 
     return {D * hermitri * D.ht()};
 }
-```
+
+#endif //NLA_MAT_H
