@@ -5,6 +5,9 @@
 #ifndef NLA_MAT_H
 #define NLA_MAT_H
 
+/**  This class is designed for
+ **  @tparam Mat Type of matrix this object uses
+ **/
 template<typename Mat = arma::cx_mat>
 class nla_mat
 {
@@ -115,16 +118,16 @@ nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
 
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `A.to_hessenberg()` into Real Symmetric Tridiagonal
- **  @A: Hermitian Tridiagonal
- *   @return: Real Symmetric Tridiagonal, similar to A
+ **  @param A Hermitian Tridiagonal
+ *   @return Real Symmetric Tridiagonal, similar to A
 ***/
 nla_mat<>
-hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
+inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 {
     using namespace arma;
     using namespace std::complex_literals;
 
-    auto hermitri = A.get_mat();
+    const auto &hermitri = A.get_mat();
     auto rows = hermitri.n_rows;
 
     auto diag_entries = cx_colvec(rows);

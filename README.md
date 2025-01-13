@@ -1,6 +1,6 @@
 README file for my project and also for the final submission.
 
-## Prerequisites for compiling for project successfully
+## Prerequisites for compiling project successfully
 User should set `-std=c++17` since I used some `c++17` features such as:
 
 - Variable with template arguments;
@@ -10,7 +10,6 @@ like: `std::enable_if_t` instead of `std::enable_if::type`. This is not a must b
 
 If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::fmt`.
 
-## Something unimportant
 To enable printing additional information or make the code more debug-friendly:
 
 `#define DEBUG` at the beginning of the `main.cpp`
@@ -24,7 +23,7 @@ or
 `g++ <blabla> -DDEBUG` in your terminal, etc.
 
 ## class `nla_mat`
-So I wrote a class to make my codes look better (more professional :D), hiding the details behind member functions.
+So I wrote a class to make my codes look better (more professional :D).
 ```cpp
 template<typename Mat = arma::cx_mat>
 class nla_mat {
@@ -155,16 +154,16 @@ In order to eliminate these imaginary part we need the help of another Diagonal 
 ```cpp
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `A.to_hessenberg()` into Real Symmetric Tridiagonal
- **  @A: Hermitian Tridiagonal
- *   @return: Real Symmetric Tridiagonal, similar to A
+ **  @param A Hermitian Tridiagonal
+ *   @return Real Symmetric Tridiagonal, similar to A
 ***/
 nla_mat<>
-hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
+inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 {
     using namespace arma;
     using namespace std::complex_literals;
 
-    auto hermitri = A.get_mat();
+    const auto &hermitri = A.get_mat();
     auto rows = hermitri.n_rows;
 
     auto diag_entries = cx_colvec(rows);
