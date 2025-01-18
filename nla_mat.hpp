@@ -29,9 +29,8 @@ private:
     Mat matx;
 
     // for complex vector
-    template<typename ET>
-    static std::enable_if_t<std::is_same_v<ET, std::complex<double> >, arma::Mat<ET> >
-    get_householder_mat(arma::Col<ET> x) {
+    arma::Mat<std::complex<double>>
+    get_householder_mat(arma::Col<std::complex<double>> x) {
         using namespace arma;
         using namespace std::complex_literals;
 
@@ -49,9 +48,8 @@ private:
     }
 
     // for real vector
-    template<typename ET>
-    static std::enable_if_t<!std::is_same_v<ET, std::complex<double> >, arma::Mat<ET> >
-    get_householder_mat(arma::Col<ET> x) {
+    static arma::Mat<double>
+    get_householder_mat(arma::Col<double> x) {
         using namespace arma;
         using namespace std::complex_literals;
 
@@ -91,6 +89,9 @@ const Mat &nla_mat<Mat>::get_mat() const { return matx; }
 template<typename Mat>
 nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
     using namespace arma;
+
+    if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
+
     auto hess = matx;
 
     for (int i = 0; i < hess.n_cols - 2; ++i) {

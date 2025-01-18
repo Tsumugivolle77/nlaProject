@@ -1,6 +1,8 @@
 #include <iostream>
 #include <armadillo>
 #include <complex>
+
+#include "givens_matrix.hpp"
 #include "nla_mat.hpp"
 
 // To enable printing additional information:
@@ -8,7 +10,7 @@
 // or
 // `add_compile_option(-DDEBUG)` in CMakeLists.txt
 
-int main() {
+void test1() {
     using namespace std::complex_literals;
     using namespace arma;
 
@@ -21,10 +23,10 @@ int main() {
     };
 
     nla_mat B = mat {
-        {1, 1, 4, 5},
-        {1, 4, 1, 9,},
-        {4, 1, 9, 8,},
-        {5, 9, 8, 0}
+            {1, 1, 4, 5},
+            {1, 4, 1, 9,},
+            {4, 1, 9, 8,},
+            {5, 9, 8, 0}
     };
 
     auto Ahermitri = A.to_hessenberg();
@@ -41,6 +43,27 @@ int main() {
         << "A Hermitri eigenvalues:\n" << eig_sym(Ahermitri.get_mat()) << '\n'
         << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri.get_mat()) << '\n'
         << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri_real.get_mat()) << '\n';
+}
+
+void test2() {
+    using namespace std::complex_literals;
+    using namespace arma;
+
+    nla_mat<cx_mat> A = {
+        {3. + 4.i, 4.},
+        {4. + 0.5i, 5. + 1.14514i}
+    };
+
+    nla_mat<cx_mat> B = cx_mat{A.get_mat().ht()};
+
+    Col col = A.get_mat().col(0);
+    Row row = A.get_mat().row(0);
+    auto g = givens_matrix<std::complex<double>>(col[0], col[1], 0, 1);
+    std::cout << g * A << std::endl;
+}
+
+int main() {
+    test2();
 
     return 0;
 }

@@ -1,12 +1,7 @@
 README file for my project and also for the final submission.
 
 ## Prerequisites for compiling project successfully
-User should set `-std=c++17` since I used some `c++17` features such as:
-
-- Variable with template arguments;
-- Typedef with templates arguments,
-
-like: `std::enable_if_t` instead of `std::enable_if::type`. This is not a must but would make my code more beautiful.
+User should set `-std=c++17` since I used some `c++17` features such as CTAD, which allows the compiler deduce template arguments from the constructor arguments. It would make my code look better.
 
 If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::fmt`.
 
@@ -21,6 +16,17 @@ or
 or 
 
 `g++ <blabla> -DDEBUG` in your terminal, etc.
+
+## Overview of the Project Structure
+The structure of the project looks like:
+```
+.
+└── nlaProject/
+├── main.cpp
+├── nla_mat.hpp
+├── givens_matrix.hpp
+└── README.md (this file)
+```
 
 ## class `nla_mat`
 So I wrote a class to make my codes look better (more professional :D).
@@ -182,3 +188,24 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
     return {D * hermitri * D.ht()};
 }
 ```
+
+## class `givens_matrix`: Our class for performing Givens Rotation
+Applying the whole Givens matrix on a dense matrix is costly, since it only affects very limited rows and columns of the other dense matrix, and only has 4 "interesting" entries.
+
+To improve the time and space complexity, we only store the affected rows and the sine and cosine value of the rotation. Moreover, I rewrite the `operator*` to apply our Givens Rotation from both left and right.
+
+The class looks like:
+```cpp
+template <typename T>
+class givens_matrix {
+public:
+    uint j, k;
+    T c, s;
+    
+    givens_matrix() = default;
+    givens_matrix(uint j, uint k, T c, T s);
+    givens_matrix(T a, T b, uint j, uint k);
+    [[nodiscard]] givens_matrix transpose() const;
+};
+```
+
