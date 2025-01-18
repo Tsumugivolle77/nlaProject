@@ -1,6 +1,10 @@
 README file for my project and also for the final submission.
 
-## Prerequisites for compiling project successfully
+Github repo: https://github.com/Tsumugivolle77/nlaProject
+
+It will be temporarily invisible until the project is submitted.
+
+# Prerequisites for compiling project successfully
 User should set `-std=c++17` since I used some `c++17` features such as CTAD, which allows the compiler deduce template arguments from the constructor arguments. It would make my code look better.
 
 If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::fmt`.
@@ -17,7 +21,7 @@ or
 
 `g++ <blabla> -DDEBUG` in your terminal, etc.
 
-## Overview of the Project Structure
+# Overview of the Project Structure
 The structure of the project looks like:
 ```
 .
@@ -27,7 +31,9 @@ The structure of the project looks like:
 ├── givens_matrix.hpp
 └── README.md (this file)
 ```
+I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
 
+# `nla_mat.hpp`
 ## class `nla_mat`
 So I wrote a class to make my codes look better (more professional :D).
 ```cpp
@@ -99,7 +105,7 @@ I used `std::enable_if_t` for deciding which version to be called, which is base
 
 ### Utility and member functions
 This part is trivial and has nothing notable to talk about. We can just skip to the next part.
-#### operator<<()
+#### `operator<<()`
 This operator overload is for applying like `std::cout` or `fout` on our `nla_mat` object.
 ```cpp
 // printing nla_mat
@@ -130,6 +136,8 @@ template<typename Mat>
 nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
     using namespace arma;
     auto hess = matx;
+    
+    if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
 
     for (int i = 0; i < hess.n_cols - 2; ++i) {
         auto x = Col<elem_type>(hess.submat(i + 1, i, hess.n_rows - 1, i));
@@ -189,6 +197,7 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 }
 ```
 
+# `givens_matrix.hpp`
 ## class `givens_matrix`: Our class for performing Givens Rotation
 Applying the whole Givens matrix on a dense matrix is costly, since it only affects very limited rows and columns of the other dense matrix, and only has 4 "interesting" entries.
 
@@ -209,3 +218,102 @@ public:
 };
 ```
 
+## implementation of member functions
+Constructors and the function for `transpose()` is implemented here.
+```cpp
+template <typename T>
+inline givens_matrix<T>::givens_matrix(uint j, uint k, T c, T s): j(j), k(k), c(c), s(s)
+{ }
+
+template <>
+inline givens_matrix<double>::givens_matrix(double a, double b, uint j, uint k)
+: j(j), k(k), c(1. / std::sqrt(1. + b * b / a / a)), s(1. / std::sqrt(a * a / b / b + 1.))
+{ }
+
+template <>
+inline givens_matrix<std::complex<double>>::givens_matrix(std::complex<double> a, std::complex<double> b, uint j, uint k)
+: j(j), k(k)
+{
+    using namespace std::complex_literals;
+
+    auto alph = std::arg(a);
+    auto beta = std::arg(b);
+    auto phi = beta - alph;
+    auto anorm = std::abs(a);
+    auto bnorm = std::abs(b);
+    auto r = std::sqrt(anorm * anorm + bnorm * bnorm);
+    c = anorm / r;
+    s = a / anorm * conj(b) / r;
+}
+
+template <typename T>
+givens_matrix<T>
+inline givens_matrix<T>::transpose() const
+{ return {j, k, c, -s}; }
+```
+
+## `operator*()`
+I overload the `operator*()` to perform Givens Rotation both for complex and real matrix, and from left and right. It's much less costly since I use references as the parameter and perform changes on the affected entries.
+```cpp
+inline arma::Col<std::complex<double>> operator*(const givens_matrix<std::complex<double>> &g, const arma::Col<std::complex<double>> &v) {
+    auto res = v;
+    uint j = g.j, k = g.k;
+    std::complex<double> c = g.c, s = g.s;
+
+    res[j] = c * v[j] + s * v[k];
+    res[k] = -std::conj(s) * v[j] + c * v[k];
+
+    return res;
+}
+
+inline arma::Col<double> operator*(const givens_matrix<double> &g, const arma::Col<double> &v) {
+    auto res = v;
+    uint j = g.j, k = g.k;
+    double c = g.c, s = g.s;
+
+    res[j] = c * v[j] + s * v[k];
+    res[k] = -s * v[j] + c * v[k];
+
+    return res;
+}
+
+
+inline arma::Row<double> operator*(const arma::Row<double> &v, const givens_matrix<double> &g) {
+    auto res = v;
+    uint j = g.j, k = g.k;
+    double c = g.c, s = g.s;
+
+    res[j] = c * v[j] - s * v[k];
+    res[k] = s * v[j] + c * v[k];
+
+    return res;
+}
+
+template <typename T>
+nla_mat<arma::Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<arma::Mat<T>> &m) {
+    using namespace arma;
+
+    auto res = m.get_mat();
+    uint cols = res.n_cols;
+
+    for (uint i = 0; i < cols; ++i) {
+        res.col(i) = g * res.col(i);
+    }
+
+    return res;
+}
+
+template <typename T, typename U = typename T::elem_type>
+nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
+    using namespace arma;
+
+    auto res = m.get_mat();
+    uint rows = res.n_rows;
+
+    for (uint i = 0; i < rows; ++i) {
+        res.row(i) = res.row(i) * g;
+    }
+
+    return res;
+}
+```

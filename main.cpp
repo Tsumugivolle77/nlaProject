@@ -59,7 +59,9 @@ void test2() {
     Col col = A.get_mat().col(0);
     Row row = A.get_mat().row(0);
     auto g = givens_matrix<std::complex<double>>(col[0], col[1], 0, 1);
+    auto h = givens_matrix<std::complex<double>>(row[0], row[1], 0, 1);
     std::cout << g * A << std::endl;
+    std::cout << A * h << std::endl;
 }
 
 int main() {

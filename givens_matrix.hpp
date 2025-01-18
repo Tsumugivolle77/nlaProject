@@ -103,7 +103,7 @@ nla_mat<arma::Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<arma::M
     uint cols = res.n_cols;
 
     for (uint i = 0; i < cols; ++i) {
-        res.col(i) = g * Col(res.col(i));
+        res.col(i) = g * res.col(i);
     }
 
     return res;
