@@ -1,4 +1,8 @@
-README file for my project and also for the final submission.
+Project `NebuLA` by Tsumugivolle77 Copyright (C) reserved.
+
+I name this project after **N**ebu**LA** instead of **NLA** (Numerical Linear Algebra) since it looks cool.
+
+README file for my project and also for the final document submission.
 
 Github repo: https://github.com/Tsumugivolle77/nlaProject
 
@@ -26,12 +30,15 @@ The structure of the project looks like:
 ```
 .
 └── nlaProject/
-├── main.cpp
-├── nla_mat.hpp
-├── givens_matrix.hpp
-├── qr_iteration.hpp
-└── README.md (this file)
+    ├── nla_headers/
+    │   ├── nla_mat.hpp
+    │   ├── givens_matrix.hpp
+    │   └── README.md (this file)
+    ├── main.cpp
+    └── nebula.hpp
 ```
+All files of `./nlaProject/nla_headers/` are included in `nla.hpp` in `namespace nebula`.
+
 I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
 
 # `nla_mat.hpp`
@@ -70,7 +77,6 @@ private:
         const auto I = cx_mat(x.n_rows, x.n_rows, fill::eye);
 
         const cx_vec w = x + std::exp(1i * phase) * norm(x) * e1;
-        // const cx_vec w = x + norm(x) * e1;
         const cx_rowvec wh{w.ht()};
 
         return I - 2 * w * wh / dot(wh, w);
@@ -89,7 +95,6 @@ private:
 
         auto sgn = [](auto v) -> auto { return v >= 0 ? 1 : -1; };
         const vec w = x + sgn(x1) * norm(x) * e1;
-        // const cx_vec w = x + norm(x) * e1;
         const rowvec wh{w.t()};
 
         return I - 2 * w * wh / dot(wh, w);

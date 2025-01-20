@@ -4,9 +4,6 @@
 
 #ifndef GIVENS_MATRIX_H
 #define GIVENS_MATRIX_H
-#include <complex>
-#include <armadillo>
-#include "nla_mat.hpp"
 
 template <typename T>
 class givens_matrix {
@@ -26,7 +23,7 @@ inline givens_matrix<T>::givens_matrix(uint j, uint k, T c, T s): j(j), k(k), c(
 
 template <>
 inline givens_matrix<double>::givens_matrix(double a, double b, uint j, uint k)
-: j(j), k(k), c(1. / std::sqrt(1. + b * b / a / a)), s(1. / std::sqrt(a * a / b / b + 1.))
+: j(j), k(k), c(a / std::sqrt(a * a + b * b)), s(b / std::sqrt(a * a + b * b))
 { }
 
 template <>
