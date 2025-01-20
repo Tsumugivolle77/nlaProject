@@ -4,12 +4,14 @@ I name this project after **N**ebu**LA** instead of **NLA** (Numerical Linear Al
 
 README file for my project and also for the final document submission.
 
-Github repo: https://github.com/Tsumugivolle77/nlaProject
+GitHub repo: https://github.com/Tsumugivolle77/nlaProject
 
 It will be temporarily invisible until submission deadline comes.
 
 # Prerequisites for compiling project successfully
-Install Armadillo before you start and configure it properly.
+Install Armadillo(14.0.3) before you start and configure it properly.
+
+Armadillo Web Page: https://arma.sourceforge.net
 
 User should set `-std=c++17` since I used some `c++17` features such as CTAD, which allows the compiler deduce template arguments from the constructor arguments. It would make my code look better.
 
@@ -39,37 +41,44 @@ The structure of the project looks like:
     ├── main.cpp
     └── nebula.hpp
 ```
-All files of `./nlaProject/nla_headers/` are included in `nla.hpp` in `namespace nebula`.
+
+All files in `./nlaProject/nla_headers/` are included in `nla.hpp` in `namespace nebula`:
+```cpp
+namespace nebula {
+using namespace arma;
+#include "nla_headers/nla_mat.hpp"
+#include "nla_headers/givens_matrix.hpp"
+#include "nla_headers/qr_iteration.hpp"
+}
+```
 
 I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
 
 # `nla_mat.hpp`
 ## class `nla_mat`
-So I wrote a class to make my codes look better (more professional :D).
+So I write a class to make my codes look better.
 ```cpp
-template<typename Mat = arma::cx_mat>
-class nla_mat {
+/**  This class is designed for
+ **  @tparam M Type of matrix this object uses
+ **/
+template<typename M = cx_mat>
+class nla_mat
+{
 public:
-    using elem_type = typename Mat::elem_type;
+    using elem_type = typename M::elem_type;
     using list      = std::initializer_list<elem_type>;
     using lists     = std::initializer_list<list>;
 
-    nla_mat(Mat &&m);
+    nla_mat(M &&m);
     nla_mat(lists &&li);
 
-    Mat       &get_mat();
-    const Mat &get_mat() const;
+    M       &get_mat();
+    const M &get_mat() const;
     nla_mat to_hessenberg() const;
 
-#ifndef DEBUG
-private:
-#endif
-    Mat matx;
-
     // for complex vector
-    static arma::Mat<std::complex<double>>
-    get_householder_mat(const arma::Col<std::complex<double>> &x) {
-        using namespace arma;
+    static Mat<std::complex<double>>
+    get_householder_mat(const Col<std::complex<double>> &x) {
         using namespace std::complex_literals;
 
         auto x1 = x[0];
@@ -85,9 +94,8 @@ private:
     }
 
     // for real vector
-    static arma::Mat<double>
-    get_householder_mat(const arma::Col<double> &x) {
-        using namespace arma;
+    static Mat<double>
+    get_householder_mat(const Col<double> &x) {
         using namespace std::complex_literals;
 
         auto x1 = x[0];
@@ -101,13 +109,16 @@ private:
 
         return I - 2 * w * wh / dot(wh, w);
     }
+
+private:
+    M matx;
 };
 ```
 At the beginning of the class I defined alias for types and declared some member functions including constructors and so on. The implementation would be introduced above.
 
 Then I introduced a static member function `get_householder_mat` to compute the Householder Matrix from a given vector `x`. It has two overloads. For the complex vector it will call the first overload, otherwise the second will be called.
 
-I used `std::enable_if_t` for deciding which version to be called, which is based upon `SFINAE` in C++. But factually in this case, we can simply use function overload (they are equivalent this time). It anyway serves as a watermark for my own version :P.
+I function overload (they are equivalent this time) for real and complex vectors.
 
 ### Utility and member functions
 This part is trivial and has nothing notable to talk about. We can just skip to the next part.
@@ -115,19 +126,19 @@ This part is trivial and has nothing notable to talk about. We can just skip to 
 This operator overload is for applying like `std::cout` or `fout` on our `nla_mat` object.
 ```cpp
 // printing nla_mat
-template <typename Mat>
-std::ostream &operator<<(std::ostream &os, const nla_mat<Mat> &mat) {
+template <typename M>
+std::ostream &operator<<(std::ostream &os, const nla_mat<M> &mat) {
     return os << mat.get_mat();
 }
 ```
 
 #### constructors
 ```cpp
-template<typename Mat>
-nla_mat<Mat>::nla_mat(Mat &&m): matx(m) { }
+template<typename M>
+nla_mat<M>::nla_mat(M &&m): matx(m) { }
 
-template<typename Mat>
-nla_mat<Mat>::nla_mat(lists &&li): matx(li) { }
+template<typename M>
+nla_mat<M>::nla_mat(lists &&li): matx(li) { }
 ```
 
 ### SUBTASK ONE: Hermitian to Symmetric Tridiagonal
@@ -138,9 +149,8 @@ We can also derive from this another statement: Hermitian Matrix is similar to a
 Transforming into Hermitian Tridiagonal Matrix is straightforward by applying Householder. However, imaginary parts of the sub- and superdiagonal entries still remain.
 ```cpp
 // get the Hessenberg form of matx
-template<typename Mat>
-nla_mat<Mat> nla_mat<Mat>::to_hessenberg() const {
-    using namespace arma;
+template<typename M>
+nla_mat<M> nla_mat<M>::to_hessenberg() const {
     auto hess = matx;
     
     if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
@@ -148,7 +158,7 @@ nla_mat<Mat> nla_mat<Mat>::to_hessenberg() const {
     for (int i = 0; i < hess.n_cols - 2; ++i) {
         auto x = Col<elem_type>(hess.submat(i + 1, i, hess.n_rows - 1, i));
         auto H = get_householder_mat(x);
-        auto Qi = Mat(hess.n_rows, hess.n_cols, fill::eye);
+        auto Qi = Mat<elem_type>(hess.n_rows, hess.n_cols, fill::eye);
 
         Qi(span(i + 1, Qi.n_rows - 1), span(i + 1, Qi.n_cols - 1)) = H;
 
@@ -177,10 +187,9 @@ In order to eliminate these imaginary part we need the help of another Diagonal 
  **  @param A Hermitian Tridiagonal
  *   @return Real Symmetric Tridiagonal, similar to A
 ***/
-nla_mat<>
+nla_mat<mat>
 inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 {
-    using namespace arma;
     using namespace std::complex_literals;
 
     const auto &hermitri = A.get_mat();
@@ -199,7 +208,7 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 
     auto D = diagmat(diag_entries);
 
-    return {D * hermitri * D.ht()};
+    return {real(D * hermitri * D.ht())};
 }
 ```
 
@@ -233,7 +242,7 @@ inline givens_matrix<T>::givens_matrix(uint j, uint k, T c, T s): j(j), k(k), c(
 
 template <>
 inline givens_matrix<double>::givens_matrix(double a, double b, uint j, uint k)
-: j(j), k(k), c(1. / std::sqrt(1. + b * b / a / a)), s(1. / std::sqrt(a * a / b / b + 1.))
+: j(j), k(k), c(a / std::sqrt(a * a + b * b)), s(b / std::sqrt(a * a + b * b))
 { }
 
 template <>
@@ -244,7 +253,6 @@ inline givens_matrix<std::complex<double>>::givens_matrix(std::complex<double> a
 
     auto alph = std::arg(a);
     auto beta = std::arg(b);
-    auto phi = beta - alph;
     auto anorm = std::abs(a);
     auto bnorm = std::abs(b);
     auto r = std::sqrt(anorm * anorm + bnorm * bnorm);
@@ -261,7 +269,7 @@ inline givens_matrix<T>::transpose() const
 ## `operator*()`
 I overload the `operator*()` to perform Givens Rotation both for complex and real matrix, and from left and right. It's much less costly since I use references as the parameter and perform changes on the affected entries.
 ```cpp
-inline arma::Col<std::complex<double>> operator*(const givens_matrix<std::complex<double>> &g, const arma::Col<std::complex<double>> &v) {
+inline Col<std::complex<double>> operator*(const givens_matrix<std::complex<double>> &g, const Col<std::complex<double>> &v) {
     auto res = v;
     uint j = g.j, k = g.k;
     std::complex<double> c = g.c, s = g.s;
@@ -272,7 +280,7 @@ inline arma::Col<std::complex<double>> operator*(const givens_matrix<std::comple
     return res;
 }
 
-inline arma::Col<double> operator*(const givens_matrix<double> &g, const arma::Col<double> &v) {
+inline Col<double> operator*(const givens_matrix<double> &g, const Col<double> &v) {
     auto res = v;
     uint j = g.j, k = g.k;
     double c = g.c, s = g.s;
@@ -284,7 +292,7 @@ inline arma::Col<double> operator*(const givens_matrix<double> &g, const arma::C
 }
 
 
-inline arma::Row<double> operator*(const arma::Row<double> &v, const givens_matrix<double> &g) {
+inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &g) {
     auto res = v;
     uint j = g.j, k = g.k;
     double c = g.c, s = g.s;
@@ -296,9 +304,7 @@ inline arma::Row<double> operator*(const arma::Row<double> &v, const givens_matr
 }
 
 template <typename T>
-nla_mat<arma::Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<arma::Mat<T>> &m) {
-    using namespace arma;
-
+nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
     auto res = m.get_mat();
     uint cols = res.n_cols;
 
@@ -311,8 +317,6 @@ nla_mat<arma::Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<arma::M
 
 template <typename T, typename U = typename T::elem_type>
 nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
-    using namespace arma;
-
     auto res = m.get_mat();
     uint rows = res.n_rows;
 
@@ -329,35 +333,184 @@ nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
 ## `namespace qr`
 Different types of QR iterations are given in `namespace qr`: the most fundamental one, one with shifts and one with both shifts and deflations.
 
+### function `qr::step_for_hessenberg`
+This function performs exactly one QR step for a Hessenberg form by Givens Rotation, which is O(n).
+
+It contains the **implicit shift** if it's needed for accelerating convergence and saving storage.
+
+It is frequently called by the other QR iteration algorithms in the same namespace. 
+```cpp
+// function for perform a qr step
+template <typename T>
+void qr_step_for_hessenberg(nla_mat<T> &hess, const typename T::elem_type &shift = 0.) {
+    auto row = hess.get_mat().n_rows;
+    
+    // performs implicit shift
+    {
+        auto a = hess.get_mat().at(0, 0) - shift;
+        auto b = hess.get_mat().at(1, 0);
+        givens_matrix<typename T::elem_type> g {a, b, 0, 1};
+        hess = g * hess * g.transpose();
+    }
+
+    for (uint j = 0; j < row - 1; ++j) {
+        auto a = hess.get_mat().at(j, j);
+        auto b = hess.get_mat().at(j + 1, j);
+        givens_matrix<typename T::elem_type> g = {a, b, j, j + 1};
+        hess = g * hess * g.transpose();
+    }
+}
+```
+
 ### function `qr::iteration`
 This function implements the very basic requirements for computing the eigenvalues of a matrix.
 
-It first turns the input matrix `m` into a Hessenberg one by `nla_mat<T>::to_hessenberg`, and then perform QR steps with Givens Rotation on it.
+It first turns the input matrix `m` into a Hessenberg one by `nla_mat<T>::to_hessenberg`, and then perform QR steps by calling `qr::step_with_hessenberg` given above, until convergence.
 ```cpp
-/*** !!! SUBTASK 2: QR iteration w\o deflation and shift
+/*** !!! SUBTASK 2-1: QR iteration w\o deflation and shift
  **  @tparam T type of the Armadillo matrix, on which we are performing operations
  **  @param m input matrix
  **  @param maxiter maximum iteration steps
  **  @return quasi-upper-triangular matrix
 ***/
 template <typename T>
-auto qr_iteration(const nla_mat<T> &m, uint maxiter = 1000) {
+Col<typename T::elem_type> iteration(const nla_mat<T> &m, uint maxiter = 1000) {
     auto hess = m.to_hessenberg();
-    auto row = hess.get_mat().n_rows;
 
     for (uint i = 0; i < maxiter; ++i) {
-        for (uint j = 0; j < row - 1; ++j) {
-            auto a = hess.get_mat().at(j, j);
-            auto b = hess.get_mat().at(j + 1, j);
-            givens_matrix<typename T::elem_type> g = {a, b, j, j + 1};
-            hess = g * hess * g.transpose();
-        }
+        step_for_hessenberg(hess);
     }
 
-    return hess;
+    return {hess.get_mat().diag()};
 }
 ```
 
-### function `qr::iteration_with_shift`
+### Iteration with shift for matrices with special structures
+In `NebuLA`, matrices with special structures are:
+- Tridiagonal Real Symmetric;
+- Real Symmetric;
+- Hermitian.
+
+The last two are similar to the first one by performing Unitary Transform, whilst the first one can be applied **Perfect Shift** (Lemma 2.5.4).
+
+Thus, I write specialized QR iteration versions for these categories of matrices. As Thm. 2.5.11 states, the convergence rate for this algorithm is quadratic and in many cases even cubic. (The proof is too long and technical)
+```cpp
+inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat> &tridiag, uint maxiter = 1000) {
+    auto cols = tridiag.get_mat().n_cols;
+    auto res = tridiag;
+
+    for (uint i = 0; i < maxiter; ++i) {
+        auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
+        const auto &r = res.get_mat();
+        auto a = r.at(cols - 1, cols - 1);
+        auto b = r.at(cols - 2, cols - 2);
+        auto c = r.at(cols - 1, cols - 2);
+        auto d = (b - a) / 2.;
+        auto shift = a + d - sign(d) * std::sqrt(d * d + c * c);
+
+        step_for_hessenberg(res, shift);
+    }
+
+    return res.get_mat().diag();
+}
+
+inline vec iteration_with_shift_for_hermitian(const nla_mat<cx_mat> &m, uint maxiter = 1000) {
+    auto hess = m.to_hessenberg();
+    auto tridiag = hermitian_tridiag2sym_tridiag(hess);
+    return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
+}
+
+inline vec iteration_with_shift_for_symmetric(const nla_mat<mat> &m, uint maxiter = 1000) {
+    auto tridiag = m.to_hessenberg();
+    return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
+}
+```
+As you can see, the last two functions above will first turn the matrices into real symmetric tridiagonal form, then call the iteration specialized for real symmetric tridiagonal matrices on them.
+
+```
+Hermitian -- Householder --> Hermitian Tridiagonal -- A Diagonal Unitary Matrix -->
+                                                                                  |---> Real Symmetric Tridiagonal -- QR STEPS --> Quasi Upper Triangular
+Real Symmetric ----------------------------- Householder ------------------------->
+```
+
+### functions `qr::francis_step` and  `qr::iteration_with_shift`
+For this part, we will use Francis QR Step, which is given by Algorithm 2.5.20. Note that we need to compute the first colum of $M = H^2 - sH + tI$, which will be consuming if we compute the full matrix.
+
+To simplify we note that the first column of $AB$ is $A$ multiply the first column of $B$. We also find the special structure of the first colum our $H$, which has only 2 nonzero entries. Hence, we can rewrite the first colum of $H^2$ as the linear combination of $H$'s first two columns.
+
+Below the two versions of performing one Francis QR Step are given.
+```cpp
+// Francis QR Step
+inline void francis_step(nla_mat<cx_mat> &hess) {
+    {
+        // set up the implicit shift
+        auto s    = trace(hess.get_mat());
+        auto t    = det(hess.get_mat());
+        auto col0 = hess.get_mat().col(0);
+        auto col1 = hess.get_mat().col(1);
+        auto h00  = hess.get_mat().at(0, 0);
+        auto h10  = hess.get_mat().at(1, 0);
+        cx_colvec w = h00 * col0 + h10 * col1 - s * col0;
+        w[0] += t;
+
+        auto Q = nla_mat<>::get_householder_mat(w);
+        hess = {Q * hess.get_mat() * Q.ht()};
+    }
+
+    auto rows = hess.get_mat().n_rows;
+
+    for (uint i = 0; i < rows - 1; ++i) {
+        cx_colvec hess_col_i = hess.get_mat()(span(i + 1, rows - 1), i);
+        auto Q = nla_mat<>::get_householder_mat(hess_col_i);
+        hess.get_mat()(span(i + 1, rows - 1), span(i + 1, rows - 1))
+            = Q * hess.get_mat()(span(i + 1, rows - 1), span(i + 1, rows - 1)) * Q.t();
+    }
+}
+
+inline void francis_step(nla_mat<mat> &hess) {
+    {
+        // set up the implicit shift
+        auto s    = trace(hess.get_mat());
+        auto t    = det(hess.get_mat());
+        auto col0 = hess.get_mat().col(0);
+        auto col1 = hess.get_mat().col(1);
+        auto h00  = hess.get_mat().at(0, 0);
+        auto h10  = hess.get_mat().at(1, 0);
+        colvec w = h00 * col0 + h10 * col1 - s * col0;
+        w[0] += t;
+
+        auto Q = nla_mat<>::get_householder_mat(w);
+        hess = {Q * hess.get_mat() * Q.t()};
+    }
+
+    auto rows = hess.get_mat().n_rows;
+
+    for (uint i = 1; i < rows - 1; ++i) {
+        colvec hess_col_i = hess.get_mat()(span(i, rows - 1), i);
+        auto Q = nla_mat<>::get_householder_mat(hess_col_i);
+        hess.get_mat()(span(i, rows - 1), span(i, rows - 1)) = Q * hess.get_mat()(span(i, rows - 1), span(i, rows - 1)) * Q.t();
+    }
+}
+```
+
+With the help of `qr::francis_step` we can implement the QR iteration with implicit double shift as:
+```cpp
+/*** !!! SUBTASK 2-2: QR Iteration with Francis QR Step
+ **  @tparam T type of the Armadillo matrix, on which we are performing operations
+ **  @param m input matrix
+ **  @param maxiter maximum iteration steps
+ **  @return quasi-upper-triangular matrix
+ **/
+template <typename T>
+Col<typename T::elem_type> iteration_with_shift(const nla_mat<T> &m, uint maxiter = 1000) {
+    auto hess = m.to_hessenberg();
+
+    for (uint i = 0; i < maxiter; ++i) {
+        francis_step(hess);
+    }
+
+    return {hess.get_mat().diag()};
+}
+```
 
 ### function `qr::iteration_with_deflation`

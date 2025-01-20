@@ -32,9 +32,6 @@ inline givens_matrix<std::complex<double>>::givens_matrix(std::complex<double> a
 {
     using namespace std::complex_literals;
 
-    auto alph = std::arg(a);
-    auto beta = std::arg(b);
-    auto phi = beta - alph;
     auto anorm = std::abs(a);
     auto bnorm = std::abs(b);
     auto r = std::sqrt(anorm * anorm + bnorm * bnorm);
@@ -47,7 +44,7 @@ givens_matrix<T>
 inline givens_matrix<T>::transpose() const
 { return {j, k, c, -s}; }
 
-inline arma::Row<std::complex<double>> operator*(const arma::Row<std::complex<double>> &v, const givens_matrix<std::complex<double>> &g) {
+inline Row<std::complex<double>> operator*(const Row<std::complex<double>> &v, const givens_matrix<std::complex<double>> &g) {
     auto res = v;
     uint j = g.j, k = g.k;
     std::complex<double> c = g.c, s = g.s;
@@ -58,7 +55,7 @@ inline arma::Row<std::complex<double>> operator*(const arma::Row<std::complex<do
     return res;
 }
 
-inline arma::Col<std::complex<double>> operator*(const givens_matrix<std::complex<double>> &g, const arma::Col<std::complex<double>> &v) {
+inline Col<std::complex<double>> operator*(const givens_matrix<std::complex<double>> &g, const Col<std::complex<double>> &v) {
     auto res = v;
     uint j = g.j, k = g.k;
     std::complex<double> c = g.c, s = g.s;
@@ -69,7 +66,7 @@ inline arma::Col<std::complex<double>> operator*(const givens_matrix<std::comple
     return res;
 }
 
-inline arma::Col<double> operator*(const givens_matrix<double> &g, const arma::Col<double> &v) {
+inline Col<double> operator*(const givens_matrix<double> &g, const Col<double> &v) {
     auto res = v;
     uint j = g.j, k = g.k;
     double c = g.c, s = g.s;
@@ -81,7 +78,7 @@ inline arma::Col<double> operator*(const givens_matrix<double> &g, const arma::C
 }
 
 
-inline arma::Row<double> operator*(const arma::Row<double> &v, const givens_matrix<double> &g) {
+inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &g) {
     auto res = v;
     uint j = g.j, k = g.k;
     double c = g.c, s = g.s;
@@ -93,9 +90,7 @@ inline arma::Row<double> operator*(const arma::Row<double> &v, const givens_matr
 }
 
 template <typename T>
-nla_mat<arma::Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<arma::Mat<T>> &m) {
-    using namespace arma;
-
+nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
     auto res = m.get_mat();
     uint cols = res.n_cols;
 
@@ -108,8 +103,6 @@ nla_mat<arma::Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<arma::M
 
 template <typename T, typename U = typename T::elem_type>
 nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
-    using namespace arma;
-
     auto res = m.get_mat();
     uint rows = res.n_rows;
 

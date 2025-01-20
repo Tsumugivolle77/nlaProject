@@ -8,7 +8,7 @@
 // or
 // `add_compile_option(-DDEBUG)` in CMakeLists.txt
 
-void test1() {
+void test() {
     using namespace std::complex_literals;
     using namespace arma;
 
@@ -21,16 +21,16 @@ void test1() {
     };
 
     nebula::nla_mat B = mat {
-            {1, 1, 4, 5},
-            {1, 4, 1, 9,},
-            {4, 1, 9, 8,},
-            {5, 9, 8, 0}
+            {1, 1.5, 4, 5},
+            {1, 4., 1, 9,},
+            {4, 11., 9, 8,},
+            {5, 9, 8., 0}
     };
 
     auto Ahermitri = A.to_hessenberg();
     auto Asymmetri = hermitian_tridiag2sym_tridiag(Ahermitri);
     // since A is real symmetric tridiagonal now, we can safely extract its real part
-    nebula::nla_mat<mat> Asymmetri_real = mat{real(Asymmetri.get_mat())};
+    nebula::nla_mat Asymmetri_real = mat{Asymmetri.get_mat()};
 
     // std::cout
     //     << "A Hermitian:\n" << A << '\n'
@@ -41,33 +41,25 @@ void test1() {
     //     << "A Hermitri eigenvalues:\n" << eig_sym(Ahermitri.get_mat()) << '\n'
     //     << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri.get_mat()) << '\n'
     //     << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri_real.get_mat()) << '\n';
+
     std::cout
-        << "B after QR iters:\n" << nebula::qr::iteration(B).get_mat().diag() << std::endl
-        << "B eigs:\n" << eig_sym(B.get_mat()) << std::endl
+        << "For A:" << std::endl
+        << "after QR iters:\n" << nebula::qr::iteration_with_shift(A, 500) << std::endl
+        << "after QR iters:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 500) << std::endl
+        << "after QR iters:\n" << nebula::qr::iteration(A, 500) << std::endl
+        << "eigs:\n" << eig_gen(A.get_mat()) << std::endl
+    ;
+
+    std::cout
+        << "For B:" << std::endl
+        << "after QR iters:\n" << nebula::qr::iteration_with_shift(B, 500) << std::endl
+        << "after QR iters:\n" << nebula::qr::iteration(B, 500) << std::endl
+        << "eigs:\n" << eig_gen(B.get_mat()) << std::endl
     ;
 }
 
-void test2() {
-    using namespace std::complex_literals;
-    using namespace arma;
-
-    nebula::nla_mat<cx_mat> A = {
-        {3. + 4.i, 4.},
-        {4. + 0.5i, 5. + 1.14514i}
-    };
-
-    nebula::nla_mat<cx_mat> B = cx_mat{A.get_mat().ht()};
-
-    Col col = A.get_mat().col(0);
-    Row row = A.get_mat().row(0);
-    auto g = nebula::givens_matrix<std::complex<double>>(col[0], col[1], 0, 1);
-    auto h = nebula::givens_matrix<std::complex<double>>(row[0], row[1], 0, 1);
-    std::cout << g * A << std::endl;
-    std::cout << A * h << std::endl;
-}
-
 int main() {
-    test1();
+    test();
 
     return 0;
 }
