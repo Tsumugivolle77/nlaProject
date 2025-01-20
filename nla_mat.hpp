@@ -21,7 +21,7 @@ public:
 
     Mat       &get_mat();
     const Mat &get_mat() const;
-    nla_mat to_hessenberg();
+    nla_mat to_hessenberg() const;
 
 #ifndef DEBUG
 private:
@@ -29,8 +29,8 @@ private:
     Mat matx;
 
     // for complex vector
-    arma::Mat<std::complex<double>>
-    get_householder_mat(arma::Col<std::complex<double>> x) {
+    static arma::Mat<std::complex<double>>
+    get_householder_mat(const arma::Col<std::complex<double>> &x) {
         using namespace arma;
         using namespace std::complex_literals;
 
@@ -49,7 +49,7 @@ private:
 
     // for real vector
     static arma::Mat<double>
-    get_householder_mat(arma::Col<double> x) {
+    get_householder_mat(const arma::Col<double> &x) {
         using namespace arma;
         using namespace std::complex_literals;
 
@@ -87,7 +87,7 @@ const Mat &nla_mat<Mat>::get_mat() const { return matx; }
 
 // get the Hessenberg form of matx
 template<typename Mat>
-nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
+nla_mat<Mat> nla_mat<Mat>::to_hessenberg() const {
     using namespace arma;
 
     if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
@@ -120,7 +120,7 @@ nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `A.to_hessenberg()` into Real Symmetric Tridiagonal
  **  @param A Hermitian Tridiagonal
- *   @return Real Symmetric Tridiagonal, similar to A
+ **  @return Real Symmetric Tridiagonal, similar to A
 ***/
 nla_mat<>
 inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)

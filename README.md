@@ -2,7 +2,7 @@ README file for my project and also for the final submission.
 
 Github repo: https://github.com/Tsumugivolle77/nlaProject
 
-It will be temporarily invisible until the project is submitted.
+It will be temporarily invisible until submission deadline comes.
 
 # Prerequisites for compiling project successfully
 User should set `-std=c++17` since I used some `c++17` features such as CTAD, which allows the compiler deduce template arguments from the constructor arguments. It would make my code look better.
@@ -29,6 +29,7 @@ The structure of the project looks like:
 ├── main.cpp
 ├── nla_mat.hpp
 ├── givens_matrix.hpp
+├── qr_iteration.hpp
 └── README.md (this file)
 ```
 I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
@@ -49,7 +50,7 @@ public:
 
     Mat       &get_mat();
     const Mat &get_mat() const;
-    nla_mat to_hessenberg();
+    nla_mat to_hessenberg() const;
 
 #ifndef DEBUG
 private:
@@ -57,16 +58,15 @@ private:
     Mat matx;
 
     // for complex vector
-    template<typename ET>
-    static std::enable_if_t<std::is_same_v<ET, std::complex<double> >, arma::Mat<ET> >
-    get_householder_mat(arma::Col<ET> x) {
+    static arma::Mat<std::complex<double>>
+    get_householder_mat(const arma::Col<std::complex<double>> &x) {
         using namespace arma;
         using namespace std::complex_literals;
 
         auto x1 = x[0];
         auto phase = std::arg(x1);
-        auto e1 = cx_colvec(x.n_rows);
-        e1[0] = 1.;
+        auto e1      = cx_colvec(x.n_rows);
+        e1[0]        = 1.;
         const auto I = cx_mat(x.n_rows, x.n_rows, fill::eye);
 
         const cx_vec w = x + std::exp(1i * phase) * norm(x) * e1;
@@ -77,9 +77,8 @@ private:
     }
 
     // for real vector
-    template<typename ET>
-    static std::enable_if_t<!std::is_same_v<ET, std::complex<double> >, arma::Mat<ET> >
-    get_householder_mat(arma::Col<ET> x) {
+    static arma::Mat<double>
+    get_householder_mat(const arma::Col<double> &x) {
         using namespace arma;
         using namespace std::complex_literals;
 
@@ -133,7 +132,7 @@ Transforming into Hermitian Tridiagonal Matrix is straightforward by applying Ho
 ```cpp
 // get the Hessenberg form of matx
 template<typename Mat>
-nla_mat<Mat> nla_mat<Mat>::to_hessenberg() {
+nla_mat<Mat> nla_mat<Mat>::to_hessenberg() const {
     using namespace arma;
     auto hess = matx;
     
@@ -317,3 +316,41 @@ nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
     return res;
 }
 ```
+
+# `qr_iteration.hpp`
+## `namespace details`
+## `namespace qr`
+Different types of QR iterations are given in `namespace qr`: the most fundamental one, one with shifts and one with both shifts and deflations.
+
+### function `qr::iteration`
+This function implements the very basic requirements for computing the eigenvalues of a matrix.
+
+It first turns the input matrix `m` into a Hessenberg one by `nla_mat<T>::to_hessenberg`, and then perform QR steps with Givens Rotation on it.
+```cpp
+/*** !!! SUBTASK 2: QR iteration w\o deflation and shift
+ **  @tparam T type of the Armadillo matrix, on which we are performing operations
+ **  @param m input matrix
+ **  @param maxiter maximum iteration steps
+ **  @return quasi-upper-triangular matrix
+***/
+template <typename T>
+auto qr_iteration(const nla_mat<T> &m, uint maxiter = 1000) {
+    auto hess = m.to_hessenberg();
+    auto row = hess.get_mat().n_rows;
+
+    for (uint i = 0; i < maxiter; ++i) {
+        for (uint j = 0; j < row - 1; ++j) {
+            auto a = hess.get_mat().at(j, j);
+            auto b = hess.get_mat().at(j + 1, j);
+            givens_matrix<typename T::elem_type> g = {a, b, j, j + 1};
+            hess = g * hess * g.transpose();
+        }
+    }
+
+    return hess;
+}
+```
+
+### function `qr::iteration_with_shift`
+
+### function `qr::iteration_with_deflation`

@@ -1,9 +1,9 @@
 #include <iostream>
 #include <armadillo>
 #include <complex>
-
 #include "givens_matrix.hpp"
 #include "nla_mat.hpp"
+#include "qr_iteration.hpp"
 
 // To enable printing additional information:
 // #define DEBUG
@@ -43,6 +43,7 @@ void test1() {
         << "A Hermitri eigenvalues:\n" << eig_sym(Ahermitri.get_mat()) << '\n'
         << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri.get_mat()) << '\n'
         << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri_real.get_mat()) << '\n';
+    std::cout << "A after QR iters:\n" << qr::iteration(A).get_mat().diag() << std::endl;
 }
 
 void test2() {
@@ -65,7 +66,7 @@ void test2() {
 }
 
 int main() {
-    test2();
+    test1();
 
     return 0;
 }
