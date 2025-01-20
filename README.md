@@ -9,6 +9,8 @@ Github repo: https://github.com/Tsumugivolle77/nlaProject
 It will be temporarily invisible until submission deadline comes.
 
 # Prerequisites for compiling project successfully
+Install Armadillo before you start and configure it properly.
+
 User should set `-std=c++17` since I used some `c++17` features such as CTAD, which allows the compiler deduce template arguments from the constructor arguments. It would make my code look better.
 
 If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::fmt`.
