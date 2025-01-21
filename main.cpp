@@ -46,14 +46,14 @@ void test() {
     std::cout
         << "For A:" << std::endl
         << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(A, 600) << std::endl
-        << "after QR iters for hermi:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 500) << std::endl
+        << "after QR iters for hermi:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 400) << std::endl
         << "after QR iters:\n" << nebula::qr::iteration(A, 1000) << std::endl
         << "eigs:\n" << eig_gen(A.get_mat()) << std::endl
     ;
 
     std::cout
         << "For B:" << std::endl
-        << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(B, 500) << std::endl
+        << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(B, 100) << std::endl
         << "after QR iters:\n" << nebula::qr::iteration(B, 500) << std::endl
         << "eigs:\n" << eig_gen(B.get_mat()) << std::endl
     ;

@@ -327,8 +327,8 @@ nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
     return res;
 }
 
-template <typename T, typename U = typename T::elem_type>
-nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
+template <typename M, typename U = typename M::elem_type>
+nla_mat<M> operator*(const nla_mat<M> &m, const givens_matrix<U> &g) {
     auto res = m.get_mat();
     uint rows = res.n_rows;
 
@@ -353,22 +353,22 @@ It contains the **implicit shift** if it's needed for accelerating convergence a
 It is frequently called by the other QR iteration algorithms in the same namespace. 
 ```cpp
 // function for perform a qr step
-template <typename T>
-void qr_step_for_hessenberg(nla_mat<T> &hess, const typename T::elem_type &shift = 0.) {
+template <typename M>
+void qr_step_for_hessenberg(nla_mat<M> &hess, const typename M::elem_type &shift = 0.) {
     auto row = hess.get_mat().n_rows;
     
     // performs implicit shift
     {
         auto a = hess.get_mat().at(0, 0) - shift;
         auto b = hess.get_mat().at(1, 0);
-        givens_matrix<typename T::elem_type> g {a, b, 0, 1};
+        givens_matrix<typename M::elem_type> g {a, b, 0, 1};
         hess = g * hess * g.transpose();
     }
 
     for (uint j = 0; j < row - 1; ++j) {
         auto a = hess.get_mat().at(j, j);
         auto b = hess.get_mat().at(j + 1, j);
-        givens_matrix<typename T::elem_type> g = {a, b, j, j + 1};
+        givens_matrix<typename M::elem_type> g = {a, b, j, j + 1};
         hess = g * hess * g.transpose();
     }
 }
@@ -377,16 +377,16 @@ void qr_step_for_hessenberg(nla_mat<T> &hess, const typename T::elem_type &shift
 ### function `qr::iteration`
 This function implements the very basic requirements for computing the eigenvalues of a matrix.
 
-It first turns the input matrix `m` into a Hessenberg one by `nla_mat<T>::to_hessenberg`, and then perform QR steps by calling `qr::step_with_hessenberg` given above, until convergence.
+It first turns the input matrix `m` into a Hessenberg one by `nla_mat<M>::to_hessenberg`, and then perform QR steps by calling `qr::step_with_hessenberg` given above, until convergence.
 ```cpp
 /*** !!! SUBTASK 2-1: QR iteration w\o deflation and shift
- **  @tparam T type of the Armadillo matrix, on which we are performing operations
+ **  @tparam M type of the Armadillo matrix, on which we are performing operations
  **  @param m input matrix
  **  @param maxiter maximum iteration steps
  **  @return quasi-upper-triangular matrix
 ***/
-template <typename T>
-Col<typename T::elem_type> iteration(const nla_mat<T> &m, uint maxiter = 1000) {
+template <typename M>
+Col<typename M::elem_type> iteration(const nla_mat<M> &m, uint maxiter = 1000) {
     auto hess = m.to_hessenberg();
 
     for (uint i = 0; i < maxiter; ++i) {
@@ -456,21 +456,22 @@ To simplify we note that the first column of $AB$ is $A$ multiply the first colu
 Below, the implementation of Francis QR Step is given.
 ```cpp
 // Francis QR Step
-template <typename T>
-inline void francis_step(nla_mat<T> &hess) {
+template <typename M>
+inline void francis_step(nla_mat<M> &hess) {
     {
         // set up the implicit shift
-        using et = typename T::elem_type;
-        et s      = trace(hess.get_mat());
-        et t      = det(hess.get_mat());
-        et h00    = hess.get_mat().at(0, 0);
-        et h10    = hess.get_mat().at(1, 0);
-        auto col0 = hess.get_mat().col(0);
-        auto col1 = hess.get_mat().col(1);
-        Col<et> w = h00 * col0 + h10 * col1 - s * col0;
-        w[0] += t;
-
-
+        using et   = typename M::elem_type;
+        uint cols  = hess.get_mat().n_cols;
+        Mat<et> sm = {hess.get_mat().submat(cols - 2, cols - 1, cols - 2, cols - 1)};
+        et s       = trace(sm);
+        et t       = det(sm);
+        et h00     = hess.get_mat().at(0, 0);
+        et h10     = hess.get_mat().at(1, 0);
+        auto col0  = hess.get_mat().col(0);
+        auto col1  = hess.get_mat().col(1);
+        Col<et> w  = h00 * col0 + h10 * col1 - s * col0;
+        w[0]      += t;
+        
         auto Q = nla_mat<>::get_householder_mat(w);
         hess = {Q * hess.get_mat() * Q.ht()};
     }
@@ -482,18 +483,23 @@ inline void francis_step(nla_mat<T> &hess) {
 With the help of `qr::francis_step` we can implement the QR iteration with implicit double shift as:
 ```cpp
 /*** !!! SUBTASK 2-2: QR Iteration with Francis QR Step
- **  @tparam T type of the Armadillo matrix, on which we are performing operations
+ **  @tparam M type of the Armadillo matrix, on which we are performing operations
  **  @param m input matrix
  **  @param maxiter maximum iteration steps
  **  @return quasi-upper-triangular matrix
  **/
-template <typename T>
-Col<typename T::elem_type> iteration_with_shift(const nla_mat<T> &m, uint maxiter = 1000) {
+template <typename M>
+Col<typename M::elem_type> iteration_with_shift(const nla_mat<M> &m, uint maxiter = 1000) {
     auto hess = m.to_hessenberg();
 
     for (uint i = 0; i < maxiter; ++i) {
         francis_step(hess);
+
+        if (doesConverge(hess)) break;
     }
+#ifdef DEBUG
+    std::cout << "Matrix after QR iteration with implicit double shift:\n" << hess.get_mat() << std::endl;
+#endif
 
     return {hess.get_mat().diag()};
 }

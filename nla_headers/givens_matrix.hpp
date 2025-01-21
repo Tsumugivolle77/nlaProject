@@ -116,8 +116,8 @@ nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
     return res;
 }
 
-template <typename T, typename U = typename T::elem_type>
-nla_mat<T> operator*(const nla_mat<T> &m, const givens_matrix<U> &g) {
+template <typename M, typename U = typename M::elem_type>
+nla_mat<M> operator*(const nla_mat<M> &m, const givens_matrix<U> &g) {
     auto res = m.get_mat();
     uint rows = res.n_rows;
 
