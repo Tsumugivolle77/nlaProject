@@ -99,7 +99,7 @@ nla_mat<M> nla_mat<M>::to_hessenberg() const {
 
     for (int i = 2; i < hess.n_rows; ++i) {
         for (int j = 0; j < i - 1; ++j) {
-            hess.at(i, j ) = {0.};
+            hess.at(i, j) = {0.};
         }
     }
 
@@ -116,7 +116,15 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 {
     using namespace std::complex_literals;
 
-    const auto &hermitri = A.get_mat();
+
+    auto hermitri = A.get_mat();
+
+    for (int i = 2; i < hermitri.n_cols; ++i) {
+        for (int j = 0; j < i - 1; ++j) {
+            hermitri.at(j, i) = {0.};
+        }
+    }
+
     auto rows = hermitri.n_rows;
 
     auto diag_entries = cx_colvec(rows);

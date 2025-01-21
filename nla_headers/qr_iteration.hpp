@@ -9,7 +9,7 @@ namespace details {
     template <typename T>
     bool doesConverge(const nla_mat<T> &hess, double tol = 1e-10)
     { return norm(hess.get_mat().diag(-1), 2) < tol; }
-};
+}
 
 namespace qr {
 using namespace details;
@@ -65,7 +65,7 @@ inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat
         auto b = r.at(cols - 2, cols - 2);
         auto c = r.at(cols - 1, cols - 2);
         auto d = (b - a) / 2.;
-        auto shift = a + d - sign(d) * std::sqrt(d * d + c * c);
+        auto shift = a + d - sign(d) * std::hypot(d, c);
 
         step_for_hessenberg(res, shift);
 
@@ -108,48 +108,6 @@ inline void francis_step(nla_mat<T> &hess) {
 
     hess = {hess.to_hessenberg()};
 }
-
-// inline void francis_step(nla_mat<cx_mat> &hess) {
-//     {
-//         // set up the implicit shift
-//         // using et = typename T::elem_type;
-//         auto s      = trace(hess.get_mat());
-//         auto t      = det(hess.get_mat());
-//         auto h00    = hess.get_mat().at(0, 0);
-//         auto h10    = hess.get_mat().at(1, 0);
-//         auto col0 = hess.get_mat().col(0);
-//         auto col1 = hess.get_mat().col(1);
-//         cx_colvec w = h00 * col0 + h10 * col1 - s * col0;
-//         w[0] += t;
-//
-//
-//         auto Q = nla_mat<>::get_householder_mat(w);
-//         hess = {Q * hess.get_mat() * Q.ht()};
-//     }
-//
-//     hess = {hess.to_hessenberg()};
-// }
-//
-// inline void francis_step(nla_mat<mat> &hess) {
-//     {
-//         // set up the implicit shift
-//         auto s    = trace(hess.get_mat());
-//         auto t    = det(hess.get_mat());
-//         auto col0 = hess.get_mat().col(0);
-//         auto col1 = hess.get_mat().col(1);
-//         auto h00  = hess.get_mat().at(0, 0);
-//         auto h10  = hess.get_mat().at(1, 0);
-//         colvec w = h00 * col0 + h10 * col1 - s * col0;
-//         w[0] += t;
-//
-//         auto Q = nla_mat<>::get_householder_mat(w);
-//         hess = {Q * hess.get_mat() * Q.t()};
-//     }
-//
-//     auto rows = hess.get_mat().n_rows;
-//
-//     hess = {hess.to_hessenberg()};
-// }
 
 /*** !!! SUBTASK 2-2: QR Iteration with Francis QR Step
  **  @tparam T type of the Armadillo matrix, on which we are performing operations

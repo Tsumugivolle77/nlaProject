@@ -163,7 +163,7 @@ nla_mat<M> nla_mat<M>::to_hessenberg() const {
 
     for (int i = 2; i < hess.n_rows; ++i) {
         for (int j = 0; j < i - 1; ++j) {
-            hess.at(i, j ) = {0.};
+            hess.at(i, j) = {0.};
         }
     }
 
@@ -241,22 +241,35 @@ inline givens_matrix<T>::givens_matrix(uint j, uint k, T c, T s): j(j), k(k), c(
 
 template <>
 inline givens_matrix<double>::givens_matrix(double a, double b, uint j, uint k)
-: j(j), k(k), c(a / std::sqrt(a * a + b * b)), s(b / std::sqrt(a * a + b * b))
-{ }
+    : j(j), k(k)
+{
+    double r = std::hypot(a, b);
+    if (std::abs(r) < 1e-10) {
+        c = 1.0;
+        s = 0.0;
+    } else {
+        c = a / r;
+        s = b / r;
+    }
+}
 
 template <>
 inline givens_matrix<std::complex<double>>::givens_matrix(std::complex<double> a, std::complex<double> b, uint j, uint k)
-: j(j), k(k)
+    : j(j), k(k)
 {
     using namespace std::complex_literals;
 
-    auto alph = std::arg(a);
-    auto beta = std::arg(b);
     auto anorm = std::abs(a);
     auto bnorm = std::abs(b);
-    auto r = std::sqrt(anorm * anorm + bnorm * bnorm);
-    c = anorm / r;
-    s = a / anorm * conj(b) / r;
+    double r = std::hypot(anorm, bnorm);
+
+    if (std::abs(r) < 1e-10) {
+        c = 1.0;
+        s = 0.0;
+    } else {
+        c = anorm / r;
+        s = a / anorm * conj(b) / r;
+    }
 }
 
 template <typename T>
@@ -405,7 +418,7 @@ inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat
         auto b = r.at(cols - 2, cols - 2);
         auto c = r.at(cols - 1, cols - 2);
         auto d = (b - a) / 2.;
-        auto shift = a + d - sign(d) * std::sqrt(d * d + c * c);
+        auto shift = a + d - sign(d) * std::hypot(d, c);
 
         step_for_hessenberg(res, shift);
         
