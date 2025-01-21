@@ -142,18 +142,13 @@ nla_mat<M>::nla_mat(lists &&li): matx(li) { }
 ```
 
 ### SUBTASK ONE: Hermitian to Symmetric Tridiagonal
-One of the most important and interesting property of Hermitian Matrix is that all its eigenvalues are real.
-
-We can also derive from this another statement: Hermitian Matrix is similar to a Symmetric Tridiagonal Matrix by using some Unitary Transform.
-
-Transforming into Hermitian Tridiagonal Matrix is straightforward by applying Householder. However, imaginary parts of the sub- and superdiagonal entries still remain.
 ```cpp
 // get the Hessenberg form of matx
 template<typename M>
 nla_mat<M> nla_mat<M>::to_hessenberg() const {
-    auto hess = matx;
-    
     if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
+
+    auto hess = matx;
 
     for (int i = 0; i < hess.n_cols - 2; ++i) {
         auto x = Col<elem_type>(hess.submat(i + 1, i, hess.n_rows - 1, i));
@@ -163,24 +158,28 @@ nla_mat<M> nla_mat<M>::to_hessenberg() const {
         Qi(span(i + 1, Qi.n_rows - 1), span(i + 1, Qi.n_cols - 1)) = H;
 
         hess = Qi * hess;
-
-#ifdef DEBUG
-            std::cout << "apply householder left\n" << hess << std::endl;
-#endif
-
         hess = hess * Qi.ht();
+    }
 
-#ifdef DEBUG
-            std::cout << "apply householder right\n" << hess << std::endl;
-#endif
+    for (int i = 2; i < hess.n_rows; ++i) {
+        for (int j = 0; j < i - 1; ++j) {
+            hess.at(i, j ) = {0.};
+        }
     }
 
     return hess;
 }
 ```
 
+Transforming into Hermitian Tridiagonal Matrix is straightforward by applying Householder, after which we manually set the lower parts zero to diminish computation errors.
+
+However, imaginary parts of the sub- and superdiagonal entries still remain.
+
+We note that, all eigenvalues of Hermitian Matrix are real. We can also derive from this another statement: Hermitian Matrix is similar to a Symmetric Tridiagonal Matrix by using some Unitary Transform.
+
 In order to eliminate these imaginary part we need the help of another Diagonal Unitary Matrix. In the following code, you will see how the Diagonal Unitary Matrix is constructed.
 
+(**NOTE:** THE CODES BELOW COULD AND SHOULD BE OPTIMIZED BY `class givens_matrix`)
 ```cpp
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `A.to_hessenberg()` into Real Symmetric Tridiagonal
@@ -397,7 +396,7 @@ Thus, I write specialized QR iteration versions for these categories of matrices
 ```cpp
 inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat> &tridiag, uint maxiter = 1000) {
     auto cols = tridiag.get_mat().n_cols;
-    auto res = tridiag;
+    auto res  = tridiag;
 
     for (uint i = 0; i < maxiter; ++i) {
         auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
@@ -409,6 +408,9 @@ inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat
         auto shift = a + d - sign(d) * std::sqrt(d * d + c * c);
 
         step_for_hessenberg(res, shift);
+        
+        // break if it converges to quasi upper triangular form
+        if (doesConverge(hess)) break;
     }
 
     return res.get_mat().diag();
@@ -438,58 +440,29 @@ For this part, we will use Francis QR Step, which is given by Algorithm 2.5.20. 
 
 To simplify we note that the first column of $AB$ is $A$ multiply the first column of $B$. We also find the special structure of the first colum our $H$, which has only 2 nonzero entries. Hence, we can rewrite the first colum of $H^2$ as the linear combination of $H$'s first two columns.
 
-Below the two versions of performing one Francis QR Step are given.
+Below, the implementation of Francis QR Step is given.
 ```cpp
 // Francis QR Step
-inline void francis_step(nla_mat<cx_mat> &hess) {
+template <typename T>
+inline void francis_step(nla_mat<T> &hess) {
     {
         // set up the implicit shift
-        auto s    = trace(hess.get_mat());
-        auto t    = det(hess.get_mat());
+        using et = typename T::elem_type;
+        et s      = trace(hess.get_mat());
+        et t      = det(hess.get_mat());
+        et h00    = hess.get_mat().at(0, 0);
+        et h10    = hess.get_mat().at(1, 0);
         auto col0 = hess.get_mat().col(0);
         auto col1 = hess.get_mat().col(1);
-        auto h00  = hess.get_mat().at(0, 0);
-        auto h10  = hess.get_mat().at(1, 0);
-        cx_colvec w = h00 * col0 + h10 * col1 - s * col0;
+        Col<et> w = h00 * col0 + h10 * col1 - s * col0;
         w[0] += t;
+
 
         auto Q = nla_mat<>::get_householder_mat(w);
         hess = {Q * hess.get_mat() * Q.ht()};
     }
 
-    auto rows = hess.get_mat().n_rows;
-
-    for (uint i = 0; i < rows - 1; ++i) {
-        cx_colvec hess_col_i = hess.get_mat()(span(i + 1, rows - 1), i);
-        auto Q = nla_mat<>::get_householder_mat(hess_col_i);
-        hess.get_mat()(span(i + 1, rows - 1), span(i + 1, rows - 1))
-            = Q * hess.get_mat()(span(i + 1, rows - 1), span(i + 1, rows - 1)) * Q.t();
-    }
-}
-
-inline void francis_step(nla_mat<mat> &hess) {
-    {
-        // set up the implicit shift
-        auto s    = trace(hess.get_mat());
-        auto t    = det(hess.get_mat());
-        auto col0 = hess.get_mat().col(0);
-        auto col1 = hess.get_mat().col(1);
-        auto h00  = hess.get_mat().at(0, 0);
-        auto h10  = hess.get_mat().at(1, 0);
-        colvec w = h00 * col0 + h10 * col1 - s * col0;
-        w[0] += t;
-
-        auto Q = nla_mat<>::get_householder_mat(w);
-        hess = {Q * hess.get_mat() * Q.t()};
-    }
-
-    auto rows = hess.get_mat().n_rows;
-
-    for (uint i = 1; i < rows - 1; ++i) {
-        colvec hess_col_i = hess.get_mat()(span(i, rows - 1), i);
-        auto Q = nla_mat<>::get_householder_mat(hess_col_i);
-        hess.get_mat()(span(i, rows - 1), span(i, rows - 1)) = Q * hess.get_mat()(span(i, rows - 1), span(i, rows - 1)) * Q.t();
-    }
+    hess = {hess.to_hessenberg()};
 }
 ```
 
@@ -512,5 +485,8 @@ Col<typename T::elem_type> iteration_with_shift(const nla_mat<T> &m, uint maxite
     return {hess.get_mat().diag()};
 }
 ```
+
+This implementation is still imperfect, since:
+- Real matrices can have complex conjugate eigen pairs 
 
 ### function `qr::iteration_with_deflation`

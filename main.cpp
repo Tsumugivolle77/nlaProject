@@ -21,38 +21,39 @@ void test() {
     };
 
     nebula::nla_mat B = mat {
-            {1, 1.5, 4, 5},
+            {1, 1.5, 4, 5.},
             {1, 4., 1, 9,},
             {4, 11., 9, 8,},
             {5, 9, 8., 0}
     };
 
     auto Ahermitri = A.to_hessenberg();
-    auto Asymmetri = hermitian_tridiag2sym_tridiag(Ahermitri);
-    // since A is real symmetric tridiagonal now, we can safely extract its real part
-    nebula::nla_mat Asymmetri_real = mat{Asymmetri.get_mat()};
+    // auto Asymmetri = hermitian_tridiag2sym_tridiag(Ahermitri);
+    // // since A is real symmetric tridiagonal now, we can safely extract its real part
+    // nebula::nla_mat Asymmetri_real = mat{Asymmetri.get_mat()};
 
-    // std::cout
+    std::cout
     //     << "A Hermitian:\n" << A << '\n'
-    //     << "A after applying Householder Transform:\n" << Ahermitri << '\n'
+    << "A after applying Householder Transform:\n" << Ahermitri << '\n'
     //     << "A transformed to real symmetric tridiagonal:\n" << Asymmetri << '\n'
     //     << "A transformed to real symmetric tridiagonal:\n" << Asymmetri_real << '\n'
     //     << "A eigenvalues:\n" << eig_sym(A.get_mat()) << '\n'
     //     << "A Hermitri eigenvalues:\n" << eig_sym(Ahermitri.get_mat()) << '\n'
     //     << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri.get_mat()) << '\n'
-    //     << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri_real.get_mat()) << '\n';
+    //     << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri_real.get_mat()) << '\n'
+    ;
 
     std::cout
         << "For A:" << std::endl
-        << "after QR iters:\n" << nebula::qr::iteration_with_shift(A, 500) << std::endl
-        << "after QR iters:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 500) << std::endl
-        << "after QR iters:\n" << nebula::qr::iteration(A, 500) << std::endl
+        << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(A, 500) << std::endl
+        << "after QR iters for hermi:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 500) << std::endl
+        << "after QR iters:\n" << nebula::qr::iteration(A, 1000) << std::endl
         << "eigs:\n" << eig_gen(A.get_mat()) << std::endl
     ;
 
     std::cout
         << "For B:" << std::endl
-        << "after QR iters:\n" << nebula::qr::iteration_with_shift(B, 500) << std::endl
+        << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(B, 500) << std::endl
         << "after QR iters:\n" << nebula::qr::iteration(B, 500) << std::endl
         << "eigs:\n" << eig_gen(B.get_mat()) << std::endl
     ;
