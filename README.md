@@ -442,12 +442,6 @@ inline vec iteration_with_shift_for_symmetric(const nla_mat<mat> &m, uint maxite
 ```
 As you can see, the last two functions above will first turn the matrices into real symmetric tridiagonal form, then call the iteration specialized for real symmetric tridiagonal matrices on them.
 
-```
-Hermitian -- Householder --> Hermitian Tridiagonal -- A Diagonal Unitary Matrix -->
-                                                                                  |---> Real Symmetric Tridiagonal -- QR STEPS --> Quasi Upper Triangular
-Real Symmetric ----------------------------- Householder ------------------------->
-```
-
 ### functions `qr::francis_step` and  `qr::iteration_with_shift`
 For this part, we will use Francis QR Step, which is given by Algorithm 2.5.20. Note that we need to compute the first colum of $M = H^2 - sH + tI$, which will be consuming if we compute the full matrix.
 
