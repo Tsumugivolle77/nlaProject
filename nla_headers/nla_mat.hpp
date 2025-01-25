@@ -116,12 +116,11 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 {
     using namespace std::complex_literals;
 
-
     auto hermitri = A.get_mat();
 
     for (int i = 2; i < hermitri.n_cols; ++i) {
         for (int j = 0; j < i - 1; ++j) {
-            hermitri.at(j, i) = {0.};
+            hermitri.at(j, i) = 0.;
         }
     }
 
@@ -140,7 +139,7 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
 
     auto D = diagmat(diag_entries);
 
-    return {real(D * hermitri * D.ht())};
+    return { real(D * hermitri * D.ht()) };
 }
 
 #endif //NLA_MAT_H

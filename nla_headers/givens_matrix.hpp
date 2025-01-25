@@ -45,9 +45,12 @@ inline givens_matrix<std::complex<double>>::givens_matrix(std::complex<double> a
     auto bnorm = std::abs(b);
     double r = std::hypot(anorm, bnorm);
 
-    if (std::abs(r) < 1e-10) {
+    if (bnorm < 1e-10) {
         c = 1.0;
         s = 0.0;
+    } if (anorm < 1e-10) {
+        c = 0.;
+        s = 1.;
     } else {
         c = anorm / r;
         s = a / anorm * conj(b) / r;
