@@ -1,3 +1,4 @@
+#pragma gcc optimize("-O3")
 #include <iostream>
 #include <armadillo>
 #include <complex>
@@ -12,9 +13,9 @@ void test() {
     using namespace std::complex_literals;
     using namespace arma;
 
-    const int size = 100;
+    const int size = 5;
 
-    arma::cx_mat hermitian_matrix(size, size, arma::fill::zeros);
+    cx_mat hermitian_matrix(size, size, fill::zeros);
 
     for (int i = 0; i < size; ++i) {
         hermitian_matrix(i, i) = i + 1;
@@ -28,37 +29,19 @@ void test() {
         }
     }
 
-    nebula::nla_mat A = cx_mat{ hermitian_matrix };
+    auto A = cx_mat { hermitian_matrix };
 
-    // nebula::nla_mat B = mat {
-    //         {1, 1.5, 4, 5.},
-    //         {1, 4., 1, 9,},
-    //         {4, 11., 9, 8,},
-    //         {5, 9, 8., 0}
-    // };
+    arma_rng::set_seed(114514);
 
-    // auto Ahermitri = A.to_hessenberg();
-    // auto Asymmetri = hermitian_tridiag2sym_tridiag(Ahermitri);
-    // // since A is real symmetric tridiagonal now, we can safely extract its real part
-    // nebula::nla_mat Asymmetri_real = mat{Asymmetri.get_mat()};
-
-    std::cout
-        << "A Hermitian:\n" << A << '\n'
-    // << "A after applying Householder Transform:\n" << Ahermitri << '\n'
-    //     << "A transformed to real symmetric tridiagonal:\n" << Asymmetri << '\n'
-    //     << "A transformed to real symmetric tridiagonal:\n" << Asymmetri_real << '\n'
-    //     << "A eigenvalues:\n" << eig_sym(A.get_mat()) << '\n'
-    // << "A Hermitri eigenvalues:\n" << eig_sym(Ahermitri.get_mat()) << '\n'
-    // << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri.get_mat()) << '\n'
-    //     << "A Symmetri eigenvalues:\n" << eig_sym(Asymmetri_real.get_mat()) << '\n'
-    ;
+    auto B = mat{ randu(40, 40) };
 
     std::cout
         << "For A:" << std::endl
+        << nebula::hermitian_tridiag2sym_tridiag(nebula::to_hessenberg(A)) << std::endl
         // << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(A, 1000) << std::endl
         // << "after QR iters for hermi:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 400) << std::endl
         // << "after QR iters:\n" << nebula::qr::iteration(A, 20) << std::endl
-        << "eigs:\n" << eig_gen(A.get_mat()) << std::endl
+        << "eigs:\n" << eig_gen(A) << std::endl
         // << "eigs:\n" << nebula::qr::iteration_with_deflation(A) << std::endl
     ;
 
@@ -71,10 +54,10 @@ void test() {
 
     // std::cout
     //     << "For B:" << std::endl
-    //     << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(B, 100) << std::endl
+    // << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(B, 50) << std::endl
     //     << "after QR iters:\n" << nebula::qr::iteration(B, 500) << std::endl
     //     << "eigs:\n" << eig_gen(B.get_mat()) << std::endl
-    // ;
+    ;
 
 }
 

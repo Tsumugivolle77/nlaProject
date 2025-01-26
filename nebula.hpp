@@ -9,7 +9,7 @@
 
 namespace nebula {
 using namespace arma;
-#include "nla_headers/nla_mat.hpp"
+#include "nla_headers/utils.hpp"
 #include "nla_headers/givens_matrix.hpp"
 #include "nla_headers/qr_iteration.hpp"
 }
