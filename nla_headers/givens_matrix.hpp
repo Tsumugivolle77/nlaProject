@@ -18,7 +18,7 @@ public:
 };
 
 template <typename T>
-inline givens_matrix<T>::givens_matrix(uint j, uint k, T c, T s): j(j), k(k), c(c), s(s)
+givens_matrix<T>::givens_matrix(uint j, uint k, T c, T s): j(j), k(k), c(c), s(s)
 { }
 
 template <>
@@ -59,7 +59,7 @@ inline givens_matrix<std::complex<double>>::givens_matrix(std::complex<double> a
 
 template <typename T>
 givens_matrix<T>
-inline givens_matrix<T>::transpose() const
+givens_matrix<T>::transpose() const
 { return {j, k, c, -s}; }
 
 inline Row<std::complex<double>> operator*(const Row<std::complex<double>> &v, const givens_matrix<std::complex<double>> &g) {
@@ -108,8 +108,8 @@ inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &
 }
 
 template <typename T>
-nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
-    auto res = m.get_mat();
+Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
+    auto res = m;
     uint cols = res.n_cols;
 
     for (uint i = 0; i < cols; ++i) {
@@ -119,9 +119,9 @@ nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
     return res;
 }
 
-template <typename M, typename U = typename M::elem_type>
-nla_mat<M> operator*(const nla_mat<M> &m, const givens_matrix<U> &g) {
-    auto res = m.get_mat();
+template <typename T>
+Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
+    auto res = m;
     uint rows = res.n_rows;
 
     for (uint i = 0; i < rows; ++i) {

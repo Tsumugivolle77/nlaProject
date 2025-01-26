@@ -1,3 +1,5 @@
+# Forewords
+
 Project `NebuLA` by Tsumugivolle77 Copyright (C) Reserved.
 
 I name this project after **N**ebu**LA** instead of **NLA** (Numerical Linear Algebra) since it looks cool.
@@ -8,7 +10,11 @@ GitHub repo: [https://github.com/Tsumugivolle77/nlaProject](https://github.com/T
 
 It will be temporarily invisible until submission deadline comes.
 
-# Prerequisites for compiling project successfully
+Since the document is written as Markdown, and rendered as PDF afterward, some of the code blocks cannot be fully viewed.
+
+For displaying the complete code block, I also will attach the original Markdown file `README.md`.
+
+## Prerequisites for compiling project successfully
 
 Install Armadillo(14.0.3) before you start and configure it properly.
 
@@ -28,9 +34,9 @@ or
 
 or
 
-`g++ <blabla> -DDEBUG` in your terminal, etc.
+`g++/clang/.. <blabla> -DDEBUG` in your terminal, etc.
 
-# Overview of the Project Structure
+## Overview of the Project Structure
 
 The structure of the project looks like:
 
@@ -38,7 +44,7 @@ The structure of the project looks like:
 .
 └── nlaProject/
     ├── nla_headers/
-    │   ├── nla_mat.hpp
+    │   ├── utils.hpp
     │   ├── givens_matrix.hpp
     │   └── README.md (this file)
     ├── main.cpp
@@ -58,108 +64,67 @@ using namespace arma;
 
 I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
 
-# `nla_mat.hpp`
+In the following parts, I will:
+1. Introduce the code file by file;
+2. Test the feasibility of my work;
+3. Give comments and retrospects.
 
-## class `nla_mat`
+# Code Introduction
+## `utils.hpp`
+Some useful functions are defined here.
 
-So I write a class to make my codes look better.
+### Get Householder Transform
+From a input row vector, compute the corresponding Householder Matrix, that eliminates all the entries below the first entry.
 
-```cpp
-/**  This class is designed for
- **  @tparam M Type of matrix this object uses
- **/
-template<typename M = cx_mat>
-class nla_mat
-{
-public:
-    using elem_type = typename M::elem_type;
-    using list      = std::initializer_list<elem_type>;
-    using lists     = std::initializer_list<list>;
-
-    nla_mat(M &&m);
-    nla_mat(lists &&li);
-
-    M       &get_mat();
-    const M &get_mat() const;
-    nla_mat to_hessenberg() const;
-
-    // for complex vector
-    static Mat<std::complex<double>>
-    get_householder_mat(const Col<std::complex<double>> &x) {
-        using namespace std::complex_literals;
-
-        auto x1 = x[0];
-        auto phase = std::arg(x1);
-        auto e1      = cx_colvec(x.n_rows);
-        e1[0]        = 1.;
-        const auto I = cx_mat(x.n_rows, x.n_rows, fill::eye);
-
-        const cx_vec w = x + std::exp(1i * phase) * norm(x) * e1;
-        const cx_rowvec wh{w.ht()};
-
-        return I - 2 * w * wh / dot(wh, w);
-    }
-
-    // for real vector
-    static Mat<double>
-    get_householder_mat(const Col<double> &x) {
-        using namespace std::complex_literals;
-
-        auto x1 = x[0];
-        auto e1 = colvec(x.n_rows);
-        e1[0] = 1.;
-        const auto I = mat(x.n_rows, x.n_rows, fill::eye);
-
-        auto sgn = [](auto v) -> auto { return v >= 0 ? 1 : -1; };
-        const vec w = x + sgn(x1) * norm(x) * e1;
-        const rowvec wh{w.t()};
-
-        return I - 2 * w * wh / dot(wh, w);
-    }
-
-private:
-    M matx;
-};
-```
-
-At the beginning of the class I defined alias for types and declared some member functions including constructors and so on. The implementation would be introduced above.
-
-Then I introduced a static member function `get_householder_mat` to compute the Householder Matrix from a given vector `x`. It has two overloads. For the complex vector it will call the first overload, otherwise the second will be called.
-
-I function overload (they are equivalent this time) for real and complex vectors.
-
-### Utility and member functions
-
-This part is trivial and has nothing notable to talk about. We can just skip to the next part.
-
-#### `operator<<()`
-
-This operator overload is for applying like `std::cout` or `fout` on our `nla_mat` object.
+I overload the function for both real vector and complex vector.
 
 ```cpp
-// printing nla_mat
-template <typename M>
-std::ostream &operator<<(std::ostream &os, const nla_mat<M> &mat) {
-    return os << mat.get_mat();
+// for complex vector
+static Mat<std::complex<double>>
+get_householder_mat(const Col<std::complex<double>> &x) {
+    using namespace std::complex_literals;
+
+    auto x1 = x[0];
+    auto phase = std::arg(x1);
+    auto e1      = cx_colvec(x.n_rows);
+    e1[0]        = 1.;
+    const auto I = cx_mat(x.n_rows, x.n_rows, fill::eye);
+
+    const cx_vec w = x + std::exp(1i * phase) * norm(x) * e1;
+    const cx_rowvec wh{w.ht()};
+
+    return I - 2 * w * wh / dot(wh, w);
+}
+
+// for real vector
+static Mat<double>
+get_householder_mat(const Col<double> &x) {
+    using namespace std::complex_literals;
+
+    auto x1 = x[0];
+    auto e1 = colvec(x.n_rows);
+    e1[0] = 1.;
+    const auto I = mat(x.n_rows, x.n_rows, fill::eye);
+
+    auto sgn = [](auto v) -> auto { return v >= 0 ? 1 : -1; };
+    const vec w = x + sgn(x1) * norm(x) * e1;
+    const rowvec wh{w.t()};
+
+    return I - 2 * w * wh / dot(wh, w);
 }
 ```
 
-#### constructors
+### From square matrix of any type to its Hessenberg Form
+With the aid of `get_householder_mat`, I am equipped with the necessary tools to convert a square matrix to its Hessenberg Form.
 
-```cpp
-template<typename M>
-nla_mat<M>::nla_mat(M &&m): matx(m) { }
-
-template<typename M>
-nla_mat<M>::nla_mat(lists &&li): matx(li) { }
-```
-
-### SUBTASK ONE: Hermitian to Symmetric Tridiagonal
+By applying Householder Transform on almost each column of the input matrix, we can easily get the Hessenberg Form.
 
 ```cpp
 // get the Hessenberg form of matx
 template<typename M>
-nla_mat<M> nla_mat<M>::to_hessenberg() const {
+M to_hessenberg(const M &matx) {
+    using elem_type = typename M::elem_type;
+
     if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
 
     auto hess = matx;
@@ -177,7 +142,7 @@ nla_mat<M> nla_mat<M>::to_hessenberg() const {
 
     for (int i = 2; i < hess.n_rows; ++i) {
         for (int j = 0; j < i - 1; ++j) {
-            hess.at(i, j) = {0.};
+            hess.at(i, j) = 0.;
         }
     }
 
@@ -185,7 +150,9 @@ nla_mat<M> nla_mat<M>::to_hessenberg() const {
 }
 ```
 
-Transforming into Hermitian Tridiagonal Matrix is straightforward by applying Householder, after which we manually set the lower parts zero to diminish computation errors.
+### SUBTASK ONE: Hermitian to Symmetric Tridiagonal
+
+Transforming Hermitian Matrix into Hermitian Tridiagonal Matrix is straightforward by applying Householder, after which we manually set the lower parts zero to diminish computation errors.
 
 However, imaginary parts of the sub- and superdiagonal entries still remain.
 
@@ -193,24 +160,23 @@ We note that, all eigenvalues of Hermitian Matrix are real. We can also derive f
 
 In order to eliminate these imaginary part we need the help of another Diagonal Unitary Matrix. In the following code, you will see how the Diagonal Unitary Matrix is constructed.
 
-(**NOTE:** THE CODES BELOW COULD AND SHOULD BE OPTIMIZED BY `class givens_matrix`)
+(**NOTE:** THE CODES BELOW MAYBE COULD BE OPTIMIZED BY `class givens_matrix`, but I don't figure the way out.)
 
 ```cpp
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
- **  from `A.to_hessenberg()` into Real Symmetric Tridiagonal
- **  @param A Hermitian Tridiagonal
- **  @return Real Symmetric Tridiagonal, similar to A
+ **  from `to_hessenberg` into Real Symmetric Tridiagonal
+ **  @param H Hermitian Tridiagonal
+ **  @return Real Symmetric Tridiagonal, similar to H
 ***/
-nla_mat<mat>
-inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
+mat inline hermitian_tridiag2sym_tridiag(const cx_mat &H)
 {
     using namespace std::complex_literals;
 
-    auto hermitri = A.get_mat();
+    auto hermitri = H;
 
     for (int i = 2; i < hermitri.n_cols; ++i) {
         for (int j = 0; j < i - 1; ++j) {
-            hermitri.at(j, i) = {0.};
+            hermitri.at(j, i) = 0.;
         }
     }
 
@@ -232,10 +198,9 @@ inline hermitian_tridiag2sym_tridiag(const nla_mat<> &A)
     return { real(D * hermitri * D.ht()) };
 }
 ```
+## `givens_matrix.hpp`
 
-# `givens_matrix.hpp`
-
-## class `givens_matrix`: Our class for performing Givens Rotation
+### class `givens_matrix`: Our class for performing Givens Rotation
 
 Applying the whole Givens matrix on a dense matrix is costly, since it only affects very limited rows and columns of the other dense matrix, and only has 4 "interesting" entries.
 
@@ -256,8 +221,7 @@ public:
     [[nodiscard]] givens_matrix transpose() const;
 };
 ```
-
-## implementation of member functions
+### implementation of member functions
 
 Constructors and the function for `transpose()` is implemented here.
 
@@ -304,10 +268,11 @@ givens_matrix<T>
 inline givens_matrix<T>::transpose() const
 { return { j, k, c, -s }; }
 ```
+### `operator*()` and `apply_givens`
 
-## `operator*()`
+I overload the `operator*()` to perform Givens Rotation on Row and Col. It's much less costly since I use references as the parameter and perform changes on the affected entries.
 
-I overload the `operator*()` to perform Givens Rotation both for complex and real matrix, and from left and right. It's much less costly since I use references as the parameter and perform changes on the affected entries.
+For perform Givens Rotation on Full Matrix, I write the function `apply_givens`. I intended to use `operator*()` too but it caused error for some reasons.
 
 ```cpp
 inline Col<std::complex<double>> operator*(const givens_matrix<std::complex<double>> &g, const Col<std::complex<double>> &v) {
@@ -345,8 +310,8 @@ inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &
 }
 
 template <typename T>
-nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
-    auto res = m.get_mat();
+Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
+    auto res = m;
     uint cols = res.n_cols;
 
     for (uint i = 0; i < cols; ++i) {
@@ -356,9 +321,9 @@ nla_mat<Mat<T>> operator*(const givens_matrix<T> &g, const nla_mat<Mat<T>> &m) {
     return res;
 }
 
-template <typename M, typename U = typename M::elem_type>
-nla_mat<M> operator*(const nla_mat<M> &m, const givens_matrix<U> &g) {
-    auto res = m.get_mat();
+template <typename T>
+Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
+    auto res = m;
     uint rows = res.n_rows;
 
     for (uint i = 0; i < rows; ++i) {
@@ -368,45 +333,43 @@ nla_mat<M> operator*(const nla_mat<M> &m, const givens_matrix<U> &g) {
     return res;
 }
 ```
-
-# `qr_iteration.hpp`
-
-## Details
-
-### function `details::doesConverge`
-
-This function is designed for checking if a Hessenberg Matrix `hess` is already quasi Upper Triangular (in the **tolerated range** Upper Triangular). If it does converge, returns `true`, otherwise `false`. The criterion used here is the **2-norm** of subdiagonal is quasi zero.
+## `qr_iteration.hpp`
 
 ```cpp
 template <typename M>
-bool doesConverge(const nla_mat<M> &hess, double tol = 1e-6)
-{ return norm(hess.get_mat().diag(-1), 2) < tol; }
+bool doesConverge(const M &hess, double tol = 1e-6)
+{ return norm(hess.diag(-1), 2) < tol; }
 ```
-
-## QR Iteration
+### QR Iteration
 
 Different types of QR iterations are given in `namespace qr`: the most fundamental one, one with shifts and one with both shifts and deflations.
 
-### function `qr::step_for_hessenberg`
+#### function `qr::step_for_hessenberg`
 
 This function performs exactly one QR step for a Hessenberg form by Givens Rotation, which is O(n).
 
+```cpp
 // function for perform a qr step
 template <typename M>
-void step_for_hessenberg(nla_mat<M> &hess) {
-auto row = hess.get_mat().n_rows;
+void step_for_hessenberg(M &hess) {
+    auto row = hess.n_rows;
 
-for (uint j = 0; j < row - 1; ++j) {
-    auto a = hess.get_mat().at(j, j);
-    auto b = hess.get_mat().at(j + 1, j);
-    givens_matrix<typename M::elem_type> g {a, b, j, j + 1};
-    hess = g * hess * g.transpose();
+    for (uint j = 0; j < row - 1; ++j) {
+        auto a = hess.at(j, j);
+        auto b = hess.at(j + 1, j);
+        givens_matrix<typename M::elem_type> g {a, b, j, j + 1};
+        std::cout << g.c << ' ' << g.s << std::endl;
+        hess = apply_givens(g, hess);
+        hess = apply_givens(hess, g.transpose());
+    }
 }
-### function `qr::iteration`
+```
+
+#### function `qr::iteration`
 
 This function implements the very basic requirements for computing the eigenvalues of a matrix.
 
-It first turns the input matrix `m` into a Hessenberg one by `nla_mat<M>::to_hessenberg`, and then perform QR steps by calling `qr::step_with_hessenberg` given above, until convergence.
+It first turns the input matrix `m` into a Hessenberg one by `to_hessenberg`, and then perform QR steps by calling `qr::step_with_hessenberg` given above, until convergence.
 
 ```cpp
 /*** !!! SUBTASK 2-1: QR iteration w\o deflation and shift
@@ -416,17 +379,28 @@ It first turns the input matrix `m` into a Hessenberg one by `nla_mat<M>::to_hes
  **  @return quasi-upper-triangular matrix
 ***/
 template <typename M>
-Col<typename M::elem_type> iteration(const nla_mat<M> &m, uint maxiter = 1000) {
-    auto hess = m.to_hessenberg();
+Col<typename M::elem_type> iteration(const M &m, uint maxiter = 1000) {
+    auto hess = to_hessenberg(m);
 
     for (uint i = 0; i < maxiter; ++i) {
         step_for_hessenberg(hess);
+
+        if (details::doesConverge(hess)) {
+#ifdef DEBUG
+            std::cout << "Converge after " << i << " Steps." << std::endl;
+#endif
+            break;
+        }
     }
 
-    return { hess.get_mat().diag() };
+#ifdef DEBUG
+    std::cout << "Matrix after QR iteration:\n" << hess << std::endl;
+#endif
+
+    return { hess.diag() };
 }
 ```
-### Iteration with shift for matrices with special structures
+#### Iteration with shift for matrices with special structures
 
 In `NebuLA`, matrices with special structures are:
 
@@ -439,13 +413,13 @@ The last two are similar to the first one by performing Unitary Transform, whils
 Thus, I write specialized QR iteration versions for these categories of matrices. As **Thm. 2.5.11** states, the convergence rate for this algorithm is quadratic and in many cases even cubic. (The proof is too long and technical)
 
 ```cpp
-inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat> &tridiag, uint maxiter = 1000) {
-    auto cols = tridiag.get_mat().n_cols;
+inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const mat &tridiag, uint maxiter = 1000) {
+    auto cols = tridiag.n_cols;
     auto res  = tridiag;
 
     for (uint i = 0; i < maxiter; ++i) {
         auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
-        const auto &r = res.get_mat();
+        const auto &r = res;
         auto a = r.at(cols - 1, cols - 1);
         auto b = r.at(cols - 2, cols - 2);
         auto c = r.at(cols - 1, cols - 2);
@@ -453,23 +427,29 @@ inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const nla_mat<mat
         auto shift = a + d - sign(d) * std::hypot(d, c);
 
         step_with_wilkinson_shift(res, shift);
-  
-        // break if it converges to quasi upper triangular form
-        if (doesConverge(hess)) break;
+
+        // std::cout << "Res after " << i << " Steps:\n" << res << std::endl;
+
+        if (details::doesConverge(res)) {
+#ifdef DEBUG
+            std::cout << "Converge after " << i << " Steps." << std::endl;
+#endif
+            break;
+        }
     }
 
-    return res.get_mat().diag();
+    return res.diag();
 }
 
-inline vec iteration_with_shift_for_hermitian(const nla_mat<cx_mat> &m, uint maxiter = 1000) {
-    auto hess = m.to_hessenberg();
+inline vec iteration_with_shift_for_hermitian(const cx_mat &m, uint maxiter = 1000) {
+    auto hess = to_hessenberg(m);
     auto tridiag = hermitian_tridiag2sym_tridiag(hess);
 
     return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
 }
 
-inline vec iteration_with_shift_for_symmetric(const nla_mat<mat> &m, uint maxiter = 1000) {
-    auto tridiag = m.to_hessenberg();
+inline vec iteration_with_shift_for_symmetric(const mat &m, uint maxiter = 1000) {
+    auto tridiag = to_hessenberg(m);
 
     return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
 }
@@ -480,25 +460,27 @@ The specialized iteration step `qr::iteration_with_wilkinson_shift` is given bel
 
 ```cpp
 template <typename M>
-void step_with_wilkinson_shift(nla_mat<M> &hess, const typename M::elem_type &shift) {
-    auto row = hess.get_mat().n_rows;
+void step_with_wilkinson_shift(M &hess, const typename M::elem_type &shift) {
+    auto row = hess.n_rows;
 
     {
-        auto a = hess.get_mat().at(0, 0) - shift;
-        auto b = hess.get_mat().at(1, 0);
+        auto a = hess.at(0, 0) - shift;
+        auto b = hess.at(1, 0);
         givens_matrix<typename M::elem_type> g {a, b, 0, 1};
-        hess = g * hess * g.transpose();
+        hess = apply_givens(g, hess);
+        hess = apply_givens(hess, g.transpose());
     }
 
     for (uint j = 1; j < row - 1; ++j) {
-        auto a = hess.get_mat().at(j, j - 1);
-        auto b = hess.get_mat().at(j + 1, j - 1);
+        auto a = hess.at(j, j - 1);
+        auto b = hess.at(j + 1, j - 1);
         givens_matrix<typename M::elem_type> g {a, b, j, j + 1};
-        hess = g * hess * g.transpose();
+        hess = apply_givens(g, hess);
+        hess = apply_givens(hess, g.transpose());
     }
 }
 ```
-### functions `qr::francis_step` and  `qr::iteration_with_shift`
+#### functions `qr::francis_step` and  `qr::iteration_with_shift`
 
 For this part, we will use Francis QR Step, which is given by Algorithm 2.5.20. Note that we need to compute the first colum of $M = H^2 - sH + tI$, which will be consuming if we compute the full matrix.
 
@@ -509,26 +491,26 @@ Below, the implementation of Francis QR Step is given.
 ```cpp
 // Francis QR Step
 template <typename M>
-inline void francis_step(nla_mat<M> &hess) {
+void francis_step(M &hess) {
     {
         // set up the implicit shift
         using et   = typename M::elem_type;
-        uint cols  = hess.get_mat().n_cols;
-        Mat<et> sm = {hess.get_mat().submat(cols - 2, cols - 1, cols - 2, cols - 1)};
+        uint cols  = hess.n_cols;
+        Mat<et> sm = { hess.submat(cols - 2, cols - 1, cols - 2, cols - 1) };
         et s       = trace(sm);
         et t       = det(sm);
-        et h00     = hess.get_mat().at(0, 0);
-        et h10     = hess.get_mat().at(1, 0);
-        auto col0  = hess.get_mat().col(0);
-        auto col1  = hess.get_mat().col(1);
+        et h00     = hess.at(0, 0);
+        et h10     = hess.at(1, 0);
+        auto col0  = hess.col(0);
+        auto col1  = hess.col(1);
         Col<et> w  = h00 * col0 + h10 * col1 - s * col0;
         w[0]      += t;
-  
-        auto Q = nla_mat<>::get_householder_mat(w);
-        hess = { Q * hess.get_mat() * Q.ht() };
+
+        auto Q = get_householder_mat(w);
+        hess = { Q * hess * Q.ht() };
     }
 
-    hess = { hess.to_hessenberg() };
+    hess = { to_hessenberg(hess) };
 }
 ```
 With the help of `qr::francis_step` we can implement the QR iteration with implicit double shift as:
@@ -541,31 +523,38 @@ With the help of `qr::francis_step` we can implement the QR iteration with impli
  **  @return quasi-upper-triangular matrix
  **/
 template <typename M>
-Col<typename M::elem_type> iteration_with_shift(const nla_mat<M> &m, uint maxiter = 1000) {
-    auto hess = m.to_hessenberg();
+Col<typename M::elem_type> iteration_with_shift(const M &m, uint maxiter = 1000) {
+    auto hess = to_hessenberg(m);
 
     for (uint i = 0; i < maxiter; ++i) {
         francis_step(hess);
 
-        if (details::doesConverge(hess)) break;
+        if (details::doesConverge(hess)) {
+#ifdef DEBUG
+            std::cout << "Converge after " << i << " Steps." << std::endl;
+#endif
+            break;
+        }
     }
 #ifdef DEBUG
-    std::cout << "Matrix after QR iteration with implicit double shift:\n" << hess.get_mat() << std::endl;
+    std::cout << "Matrix after QR iteration with implicit double shift:\n" << hess.get_mat() << std::endl
+        << "Computed eigs:\n";
 #endif
 
-    return { hess.get_mat().diag() };
+    return { hess.diag() };
 }
 ```
 This implementation is still imperfect, since:
 
-- Real matrices can have complex conjugate eigen pairs
+- Real matrices can have complex conjugate eigen pairs, which could not be computed in this iteration.
 
-### Iteration with Deflation
+#### Iteration with Deflation for Matrix with Special Structures
 
 My implementation of QR iteration with Deflation for Real Symmetric and Hermitian Matrix are each consisted of 3 parts, including 2 shared parts and 2 function overloads.
 
+I use smart pointer to manage the storage, but the effect is not ideal. Only a very small improvement.
 
-#### function `qr::iteration_with_deflation`
+##### function `qr::iteration_with_deflation`
 
 The two overloads of this function first turn the input matrix into Real Symmetric Tridiagonal Form, then delegates the computation of eigenvalues to `details::__iteration_with_deflation_impl`, which only accepts Real Symmetric Tridiagonal Form as input.
 
@@ -575,8 +564,8 @@ The two overloads of this function first turn the input matrix into Real Symmetr
  **  @param tol tolerance of error
  **  @return the real eigenvalues
  ***/
-inline std::vector<double> iteration_with_deflation(nla_mat<cx_mat> &m, double tol = 1e-6) {
-    auto tridiag = hermitian_tridiag2sym_tridiag(m.to_hessenberg());
+inline std::vector<double> iteration_with_deflation(cx_mat &m, double tol = 1e-6) {
+    auto tridiag = std::make_shared<mat>(hermitian_tridiag2sym_tridiag(to_hessenberg(m)));
     std::vector<double> eigs = {};
 
     details::__iteration_with_deflation_impl(tridiag, eigs, tol);
@@ -589,8 +578,8 @@ inline std::vector<double> iteration_with_deflation(nla_mat<cx_mat> &m, double t
  **  @param tol tolerance of error
  **  @return the real eigenvalues
  ***/
-inline std::vector<double> iteration_with_deflation(nla_mat<mat> &m, double tol = 1e-6) {
-    auto tridiag = m.to_hessenberg();
+inline std::vector<double> iteration_with_deflation(mat &m, double tol = 1e-6) {
+    auto tridiag = std::make_shared<mat>(to_hessenberg(m));
     std::vector<double> eigs = {};
 
     details::__iteration_with_deflation_impl(tridiag, eigs, tol);
@@ -598,26 +587,28 @@ inline std::vector<double> iteration_with_deflation(nla_mat<mat> &m, double tol 
     return eigs;
 }
 ```
+##### function `details::partition`
 
-#### function `details::partition`
 To deflate the matrix, we need to find the '0' in the subdiagonal after each iteration step, and split it into at least 2 submatrices. In my implementation, either no deflation happens or the martix is divided into 2 parts. If we want even more parts, we could also maintain a list of submatrices.
 
 In either case, the resulting matrix (or matrices) will be used as the input of `details::__iteration_with_deflation_impl`, which performs one QR Step with **Wilkinson Shift**, then send the new matrix back to `details::partition`.
+
 ```cpp
-template <typename M, typename et = typename M::elem_type>
-void partition(nla_mat<M> &hess, std::vector<double> &eigs, double tol = 1e-6) {
-    auto &inhalt = hess.get_mat();
-    auto cols = inhalt.n_cols;
+inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol = 1e-6) {
+    auto cols = hess->n_cols;
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
-        if (std::abs(inhalt.at(i, i - 1)) < tol * (std::abs(inhalt.at(i - 1, i - 1)) + std::abs(inhalt.at(i, i)))) {
-                nla_mat<M> part1 = { inhalt(span(0, i - 1), span(0, i - 1)) };
-                nla_mat<M> part2 = { inhalt(span(i, cols - 1), span(i, cols - 1)) };
+        if (std::abs(hess->at(i, i - 1)) < tol * (std::abs(hess->at(i - 1, i - 1)) + std::abs(hess->at(i, i)))) {
+                auto part1 = std::make_shared<mat>(
+                    (*hess)(span(0, i - 1), span(0, i - 1)));
+                auto part2 = std::make_shared<mat>(
+                    (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
-                std::cout << "First subpart:\n"  << part1.get_mat() << std::endl;
-                std::cout << "Second subpart:\n" << part2.get_mat() << std::endl;
+                std::cout << "First subpart:\n"  << *part1 << std::endl;
+                std::cout << "Second subpart:\n" << *part2 << std::endl;
 #endif
+                hess.reset();
                 __iteration_with_deflation_impl(part1, eigs, tol);
                 __iteration_with_deflation_impl(part2, eigs, tol);
 
@@ -632,11 +623,12 @@ void partition(nla_mat<M> &hess, std::vector<double> &eigs, double tol = 1e-6) {
 #endif
 }
 ```
+##### function `details::__iteration_with_deflation_impl`
 
-#### function `details::__iteration_with_deflation_impl`
 Till now, we are *dividing* the problem. To conquer the partitioned submatrices, we need to find some condition, where the branches of the recursions shall end.
 
 Thankfully, this question is easy to solve:
+
 - For the 1x1 matrix, the only element is the eigenvalue. Simply put it into the resulting eigenvalues;
 - For the 2x2 matrix, the eigenvalues are easily computed with some formula;
 - For any larger matrix, we cannot reduce the scale of the problem, but only do QR Step on the matrix and take the resulting matrix to `details::partition`.
@@ -644,21 +636,143 @@ Thankfully, this question is easy to solve:
 The implementation are given below:
 
 ```cpp
-inline void __iteration_with_deflation_impl(nla_mat<mat> &tridiag, std::vector<double> &eigs, double tol) {
+inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<double> &eigs, double tol) {
     // return the eigen value directly for the 1x1 block
-    if (tridiag.get_mat().n_cols == 1) {
-        eigs.emplace_back(tridiag.get_mat().at(0, 0));
+    if (tridiag->n_cols == 1) {
+        eigs.emplace_back(tridiag->at(0, 0));
+        tridiag.reset();
         return;
     }
 
     // for 2x2 matrix we have simple formula for it
-    if (tridiag.get_mat().n_cols == 2) {
-        auto &h = tridiag.get_mat();
+    if (tridiag->n_cols == 2) {
+        auto &h = *tridiag;
         double a = h.at(0, 0), b = h.at(0, 1),
                c = h.at(1, 0), d = h.at(1, 1);
-        if (c != 0) {
-            double delta = std::sqrt((a + d) * (a + d) - 4 * (a * d - b * c));
-            double lambda1 = (a + d + delta) / 2., lambda2 = (a + d - delta) / 2.;
+
+        if (std::abs(c) > tol * (std::abs(a) + std::abs(d))) {
+            double trace = a + d;
+            double determinant = a * d - b * c;
+            double delta = trace * trace - 4 * determinant;
+
+            double sqrt_delta = std::sqrt(delta);
+            double lambda1 = (trace + sqrt_delta) / 2.0;
+            double lambda2 = (trace - sqrt_delta) / 2.0;
+
+            eigs.emplace_back(lambda1);
+            eigs.emplace_back(lambda2);
+        } else {
+            eigs.emplace_back(a);
+            eigs.emplace_back(d);
+        }
+        tridiag.reset();
+        return;
+    }
+
+    auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
+    auto &h = *tridiag;
+    auto cols = h.n_cols;
+    auto a = h.at(cols - 1, cols - 1);
+    auto b = h.at(cols - 2, cols - 2);
+    auto c = h.at(cols - 1, cols - 2);
+    auto d = (b - a) / 2.;
+    auto shift = a + d - sign(d) * std::hypot(d, c);
+    qr::step_with_wilkinson_shift(*tridiag, shift);
+
+    details::partition(tridiag, eigs, tol);
+}
+```
+
+#### Iteration with Deflation on General Matrices
+The implementation of this part is very similar to the part above. The only big difference is that, I use Francis Step here for each iteration step.
+
+As a result, I will only give the related code without explanation in the document.
+
+##### function `qr::general_iteration_with_deflation`
+```cpp
+/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Complex Matrix
+ **  @param m complex matrix
+ **  @param tol tolerance of error
+ **  @return the complex eigenvalues
+ ***/
+inline std::vector<std::complex<double>> general_iteration_with_deflation(cx_mat &m, double tol = 1e-6) {
+    std::vector<std::complex<double>> eigs = {};
+    auto cx = std::make_shared<cx_mat>(m);
+
+    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
+
+    return eigs;
+}
+
+/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
+ **  @param m real matrix
+ **  @param tol tolerance of error
+ **  @return the complex eigenvalues
+ ***/
+inline std::vector<std::complex<double>> general_iteration_with_deflation(mat &m, double tol = 1e-6) {
+    auto cx = std::make_shared<cx_mat>(cx_mat{ m, mat(m.n_rows, m.n_cols, arma::fill::zeros) });
+    std::vector<std::complex<double>> eigs = {};
+
+    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
+
+    return eigs;
+}
+```
+
+##### function `details::partition`
+```cpp
+// partition for complex matrix
+inline void partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
+    auto cols = hess->n_cols;
+
+    // deflate the matrix
+    for (int i = cols - 1; i > 0; --i) {
+        if (std::abs(hess->at(i, i - 1)) < tol * (std::abs(hess->at(i - 1, i - 1)) + std::abs(hess->at(i, i)))) {
+            auto part1 = std::make_shared<cx_mat>(
+                (*hess)(span(0, i - 1), span(0, i - 1)));
+            auto part2 = std::make_shared<cx_mat>(
+                (*hess)(span(i, cols - 1), span(i, cols - 1)));
+#ifdef DEBUG
+            std::cout << "First subpart:\n"  << *part1 << std::endl;
+            std::cout << "Second subpart:\n" << *part2 << std::endl;
+#endif
+            hess.reset();
+            __general_iteration_with_deflation_impl(part1, eigs, tol);
+            __general_iteration_with_deflation_impl(part2, eigs, tol);
+
+            return;
+        }
+    }
+
+    // if no deflate happens, iterate with the original matrix
+    __general_iteration_with_deflation_impl(hess, eigs, tol);
+#ifdef DEBUG
+    std::cout << "No deflation." << std::endl;
+#endif
+}
+```
+
+##### function `details::__general_iteration_with_deflation_impl`
+```cpp
+inline void __general_iteration_with_deflation_impl(
+    __nm_ptr<cx_mat> &m,
+    std::vector<std::complex<double>> &eigs,
+    double tol)
+{
+    // return the eigen value directly for the 1x1 block
+    if (m->n_cols == 1) {
+        eigs.emplace_back(m->at(0, 0));
+        return;
+    }
+
+    // for 2x2 matrix we have simple formula for it
+    if (m->n_cols == 2) {
+        auto &h = *m;
+        std::complex<double> a = h.at(0, 0), b = h.at(0, 1),
+                             c = h.at(1, 0), d = h.at(1, 1);
+        if (std::abs(c) > tol * (std::abs(a) + std::abs(d))) {
+            std::complex<double> delta = std::sqrt((a + d) * (a + d) - 4. * (a * d - b * c));
+            std::complex<double> lambda1 = (a + d + delta) / 2., lambda2 = (a + d - delta) / 2.;
             eigs.emplace_back(lambda1);
             eigs.emplace_back(lambda2);
         } else {
@@ -668,16 +782,12 @@ inline void __iteration_with_deflation_impl(nla_mat<mat> &tridiag, std::vector<d
         return;
     }
 
-    auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
-    auto &h = tridiag.get_mat();
-    auto cols = h.n_cols;
-    auto a = h.at(cols - 1, cols - 1);
-    auto b = h.at(cols - 2, cols - 2);
-    auto c = h.at(cols - 1, cols - 2);
-    auto d = (b - a) / 2.;
-    auto shift = a + d - sign(d) * std::hypot(d, c);
-    qr::step_with_wilkinson_shift(tridiag, shift);
+    qr::francis_step(*m);
 
-    details::partition(tridiag, eigs, tol);
+    details::partition(m, eigs, tol);
 }
 ```
+
+# Experiment
+
+# Comments
