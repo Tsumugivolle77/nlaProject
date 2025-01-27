@@ -13,7 +13,7 @@ void test() {
     using namespace std::complex_literals;
     using namespace arma;
 
-    const int size = 5;
+    const int size = 700;
 
     cx_mat hermitian_matrix(size, size, fill::zeros);
 
@@ -31,25 +31,21 @@ void test() {
 
     auto A = cx_mat { hermitian_matrix };
 
-    arma_rng::set_seed(114514);
+    arma_rng::set_seed(1919810);
 
-    auto B = mat{ randu(40, 40) };
+    auto B = mat{ randu(48, 48) };
 
-    std::cout
-        << "For A:" << std::endl
-        << nebula::hermitian_tridiag2sym_tridiag(nebula::to_hessenberg(A)) << std::endl
-        // << "after QR iters with shift:\n" << nebula::qr::iteration_with_shift(A, 1000) << std::endl
-        // << "after QR iters for hermi:\n" << nebula::qr::iteration_with_shift_for_hermitian(A, 400) << std::endl
-        // << "after QR iters:\n" << nebula::qr::iteration(A, 20) << std::endl
-        << "eigs:\n" << eig_gen(A) << std::endl
+    eig_gen(B).print("eigs");
         // << "eigs:\n" << nebula::qr::iteration_with_deflation(A) << std::endl
     ;
 
-    auto eigs = nebula::qr::iteration_with_deflation(A);
+    // nebula::qr::iteration(B).print("eigs");
+
+    auto eigs = nebula::qr::general_iteration_with_deflation(B, 1e-6, nebula::qr::step_for_hessenberg<cx_mat>);
 
     std::cout << "eigs:\n";
     for (auto i : eigs) {
-        std::cout << i << std::endl;
+        std::cout << i << '\n';
     }
 
     // std::cout
@@ -60,6 +56,14 @@ void test() {
     ;
 
 }
+
+class A {
+    arma::vec x, y, z;
+};
+
+class B {
+    arma::mat a;
+};
 
 int main() {
     test();
