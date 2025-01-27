@@ -15,7 +15,7 @@ using __nm_ptr = std::shared_ptr<M>;
 
 inline void __iteration_with_deflation_impl(__nm_ptr<mat> &, std::vector<double> &eigs, double tol);
 
-inline void __general_iteration_with_deflation_impl(__nm_ptr<cx_mat> &, std::vector<std::complex<double>> &eigs, double tol, const std::function<void(cx_mat &)> &);
+inline void __general_iteration_with_deflation_impl(__nm_ptr<cx_mat> &, std::vector<std::complex<double>> &eigs, double tol);
 
 template <typename M>
 bool doesConverge(const M &hess, double tol = 1e-6)
@@ -47,15 +47,15 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
             std::cout << "Second subpart:\n" << *part2 << std::endl;
 #endif
             hess.reset();
-            __iteration_with_deflation_impl(part1, eigs, tol);
-            __iteration_with_deflation_impl(part2, eigs, tol);
+            __iteration_with_deflation_impl(part1, eigs, tol * norm(*hess, "fro"));
+            __iteration_with_deflation_impl(part2, eigs, tol * norm(*hess, "fro"));
 
             return;
         }
     }
 
     // if no deflate happens, iterate with the original matrix
-    __iteration_with_deflation_impl(hess, eigs, tol);
+    __iteration_with_deflation_impl(hess, eigs, tol * norm(*hess, "fro"));
 #ifdef DEBUG
     std::cout << "No deflation." << std::endl;
 #endif
@@ -63,8 +63,25 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
 
 // partition for complex matrix
 inline void
-partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6, const std::function<void(cx_mat &)> iteration_step = &qr::francis_step<cx_mat>) {
+partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
+
+    // For the 4x4 matrix, deflate them as two 2x2 matrices, regardless of how they look like
+    if (cols == 4) {
+        auto part1 = std::make_shared<cx_mat>(
+            (*hess)(span(0, 1), span(0, 1)));
+        auto part2 = std::make_shared<cx_mat>(
+            (*hess)(span(2, cols - 1), span(2, cols - 1)));
+#ifdef DEBUG
+        std::cout << "Full matrix:\n" << *hess << std::endl;
+        std::cout << "First subpart:\n"  << *part1 << std::endl;
+        std::cout << "Second subpart:\n" << *part2 << std::endl;
+#endif
+        hess.reset();
+        __general_iteration_with_deflation_impl(part1, eigs, tol);
+        __general_iteration_with_deflation_impl(part2, eigs, tol);
+        return;
+    };
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
@@ -79,19 +96,20 @@ partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, doubl
             auto part2 = std::make_shared<cx_mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
+            std::cout << "Full matrix:\n" << *hess << std::endl;
             std::cout << "First subpart:\n"  << *part1 << std::endl;
             std::cout << "Second subpart:\n" << *part2 << std::endl;
 #endif
             hess.reset();
-            __general_iteration_with_deflation_impl(part1, eigs, tol, iteration_step);
-            __general_iteration_with_deflation_impl(part2, eigs, tol, iteration_step);
+            __general_iteration_with_deflation_impl(part1, eigs, tol);
+            __general_iteration_with_deflation_impl(part2, eigs, tol);
 
             return;
         }
     }
 
     // if no deflate happens, iterate with the original matrix
-    __general_iteration_with_deflation_impl(hess, eigs, tol, iteration_step);
+    __general_iteration_with_deflation_impl(hess, eigs, tol);
 #ifdef DEBUG
     std::cout << "No deflation." << std::endl;
 #endif
@@ -289,11 +307,11 @@ inline std::vector<double> iteration_with_deflation(mat &m, double tol = 1e-6) {
  **  @return the complex eigenvalues
  ***/
 inline std::vector<std::complex<double>>
-general_iteration_with_deflation(cx_mat &m, double tol = 1e-6, const std::function<void(cx_mat &)> &iteration_step = &qr::francis_step<cx_mat>) {
+general_iteration_with_deflation(cx_mat &m, double tol = 1e-6, const std::function<void(cx_mat &)> &iteration_step = qr::francis_step<cx_mat>) {
     std::vector<std::complex<double>> eigs = {};
     auto cx = std::make_shared<cx_mat>(m);
 
-    details::__general_iteration_with_deflation_impl(cx, eigs, tol, iteration_step);
+    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
 
     return eigs;
 }
@@ -301,14 +319,15 @@ general_iteration_with_deflation(cx_mat &m, double tol = 1e-6, const std::functi
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
  **  @param m real matrix
  **  @param tol tolerance of error
+ **  @param iteration_step function used for perform a QR Step
  **  @return the complex eigenvalues
  ***/
 inline std::vector<std::complex<double>>
-general_iteration_with_deflation(mat &m, double tol = 1e-6, const std::function<void(cx_mat &)> &iteration_step = &qr::francis_step<cx_mat>) {
-    auto cx = std::make_shared<cx_mat>(cx_mat{ m, mat(m.n_rows, m.n_cols, arma::fill::zeros) });
+general_iteration_with_deflation(mat &m, double tol = 1e-6) {
+    auto cx = std::make_shared<cx_mat>(cx_mat{ m, mat(m.n_rows, m.n_cols, fill::zeros) });
     std::vector<std::complex<double>> eigs = {};
 
-    details::__general_iteration_with_deflation_impl(cx, eigs, tol, iteration_step);
+    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
 
     return eigs;
 }
@@ -366,8 +385,7 @@ inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<
 inline void __general_iteration_with_deflation_impl(
     __nm_ptr<cx_mat> &m,
     std::vector<std::complex<double>> &eigs,
-    double tol,
-    const std::function<void(cx_mat &)> &iteration_step = qr::francis_step<cx_mat>)
+    double tol)
 {
     // return the eigen value directly for the 1x1 block
     if (m->n_cols == 1) {
@@ -392,7 +410,7 @@ inline void __general_iteration_with_deflation_impl(
         return;
     }
 
-    iteration_step(*m);
+    qr::francis_step(*m);
 
     details::partition(m, eigs, tol);
 }

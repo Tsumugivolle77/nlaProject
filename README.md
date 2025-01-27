@@ -22,7 +22,7 @@ Armadillo Web Page: [https://arma.sourceforge.net](https://arma.sourceforge.net)
 
 User should set `-std=c++17` since I used some `c++17` features such as CTAD, which allows the compiler deduce template arguments from the constructor arguments. It would make my code look better.
 
-If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::fmt`.
+If it's OK, I would also want to use some features from `c++20` or `c++23` like `concepts` and `std::format`.
 
 To enable printing additional information or make the code more debug-friendly:
 
@@ -65,15 +65,19 @@ using namespace arma;
 I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
 
 In the following parts, I will:
+
 1. Introduce the code file by file;
 2. Test the feasibility of my work;
 3. Give comments and retrospects.
 
 # Code Introduction
+
 ## `utils.hpp`
+
 Some useful functions are defined here.
 
 ### Get Householder Transform
+
 From a input row vector, compute the corresponding Householder Matrix, that eliminates all the entries below the first entry.
 
 I overload the function for both real vector and complex vector.
@@ -115,6 +119,7 @@ get_householder_mat(const Col<double> &x) {
 ```
 
 ### From square matrix of any type to its Hessenberg Form
+
 With the aid of `get_householder_mat`, I am equipped with the necessary tools to convert a square matrix to its Hessenberg Form.
 
 By applying Householder Transform on almost each column of the input matrix, we can easily get the Hessenberg Form.
@@ -198,6 +203,7 @@ mat inline hermitian_tridiag2sym_tridiag(const cx_mat &H)
     return { real(D * hermitri * D.ht()) };
 }
 ```
+
 ## `givens_matrix.hpp`
 
 ### class `givens_matrix`: Our class for performing Givens Rotation
@@ -221,6 +227,7 @@ public:
     [[nodiscard]] givens_matrix transpose() const;
 };
 ```
+
 ### implementation of member functions
 
 Constructors and the function for `transpose()` is implemented here.
@@ -268,6 +275,7 @@ givens_matrix<T>
 inline givens_matrix<T>::transpose() const
 { return { j, k, c, -s }; }
 ```
+
 ### `operator*()` and `apply_givens`
 
 I overload the `operator*()` to perform Givens Rotation on Row and Col. It's much less costly since I use references as the parameter and perform changes on the affected entries.
@@ -333,6 +341,7 @@ Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
     return res;
 }
 ```
+
 ## `qr_iteration.hpp`
 
 ```cpp
@@ -340,6 +349,7 @@ template <typename M>
 bool doesConverge(const M &hess, double tol = 1e-6)
 { return norm(hess.diag(-1), 2) < tol; }
 ```
+
 ### QR Iteration
 
 Different types of QR iterations are given in `namespace qr`: the most fundamental one, one with shifts and one with both shifts and deflations.
@@ -399,6 +409,7 @@ Col<typename M::elem_type> iteration(const M &m, uint maxiter = 1000) {
     return { hess.diag() };
 }
 ```
+
 #### Iteration with shift for matrices with special structures
 
 In `NebuLA`, matrices with special structures are:
@@ -453,6 +464,7 @@ inline vec iteration_with_shift_for_symmetric(const mat &m, uint maxiter = 1000)
     return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
 }
 ```
+
 As you can see, the last two functions above will first turn the matrices into real symmetric tridiagonal form, then call the iteration specialized for real symmetric tridiagonal matrices on them.
 
 The specialized iteration step `qr::iteration_with_wilkinson_shift` is given below. The first scope performs **implicit shift**, whereas the following `for-loop`s do **Bulge Chasing** on the resulting matrix.
@@ -479,6 +491,7 @@ void step_with_wilkinson_shift(M &hess, const typename M::elem_type &shift) {
     }
 }
 ```
+
 #### functions `qr::francis_step` and  `qr::iteration_with_shift`
 
 For this part, we will use Francis QR Step, which is given by Algorithm 2.5.20. Note that we need to compute the first colum of $M = H^2 - sH + tI$, which will be consuming if we compute the full matrix.
@@ -512,6 +525,7 @@ void francis_step(M &hess) {
     hess = { to_hessenberg(hess) };
 }
 ```
+
 With the help of `qr::francis_step` we can implement the QR iteration with implicit double shift as:
 
 ```cpp
@@ -543,6 +557,7 @@ Col<typename M::elem_type> iteration_with_shift(const M &m, uint maxiter = 1000)
     return { hess.diag() };
 }
 ```
+
 This implementation is still imperfect, since:
 
 - Real matrices can have complex conjugate eigen pairs, which could not be computed in this iteration.
@@ -586,6 +601,7 @@ inline std::vector<double> iteration_with_deflation(mat &m, double tol = 1e-6) {
     return eigs;
 }
 ```
+
 ##### function `details::partition`
 
 To deflate the matrix, we need to find the '0' in the subdiagonal after each iteration step, and split it into at least 2 submatrices. In my implementation, either no deflation happens or the martix is divided into 2 parts. If we want even more parts, we could also maintain a list of submatrices.
@@ -628,6 +644,7 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
 #endif
 }
 ```
+
 ##### function `details::__iteration_with_deflation_impl`
 
 Till now, we are *dividing* the problem. To conquer the partitioned submatrices, we need to find some condition, where the branches of the recursions shall end.
@@ -689,11 +706,17 @@ inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<
 ```
 
 #### Iteration with Deflation on General Matrices
-The implementation of this part is very similar to the part above. The only big difference is that, I use Francis Step here for each iteration step.
 
-As a result, I will only give the related code without explanation in the document.
+The implementation of this part is very similar to the part above. However, when I tested the code with some even very small real matrices, it failed to converge.
+
+After my observation, this numerical instability is caused when I deflate a 4x4 matrix, of which the eigenvalues consist of at least one eigen pair (denote by $u, v$), into one 1x1 submatrix containing either $u$ or $v$, and one 3x3 submatrix. Afterward, the 3x3 submatrix will never deflate, thus giving rise to a dead end.
+
+I solve this problem by setting a condition statement: if the matrix is 4x4, divide it into two 2x2 submatrices, however. It proves effective.
+
+You will see the related snippet in the overload of `details::partition`.
 
 ##### function `qr::general_iteration_with_deflation`
+
 ```cpp
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Complex Matrix
  **  @param m complex matrix
@@ -725,10 +748,29 @@ inline std::vector<std::complex<double>> general_iteration_with_deflation(mat &m
 ```
 
 ##### function `details::partition`
+
 ```cpp
 // partition for complex matrix
-inline void partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
+inline void
+partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
+
+    // For the 4x4 matrix, deflate them as two 2x2 matrices, regardless of how they look like
+    if (cols == 4) {
+        auto part1 = std::make_shared<cx_mat>(
+            (*hess)(span(0, 1), span(0, 1)));
+        auto part2 = std::make_shared<cx_mat>(
+            (*hess)(span(2, cols - 1), span(2, cols - 1)));
+#ifdef DEBUG
+        std::cout << "Full matrix:\n" << *hess << std::endl;
+        std::cout << "First subpart:\n"  << *part1 << std::endl;
+        std::cout << "Second subpart:\n" << *part2 << std::endl;
+#endif
+        hess.reset();
+        __general_iteration_with_deflation_impl(part1, eigs, tol);
+        __general_iteration_with_deflation_impl(part2, eigs, tol);
+        return;
+    };
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
@@ -743,6 +785,7 @@ inline void partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> 
             auto part2 = std::make_shared<cx_mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
+            std::cout << "Full matrix:\n" << *hess << std::endl;
             std::cout << "First subpart:\n"  << *part1 << std::endl;
             std::cout << "Second subpart:\n" << *part2 << std::endl;
 #endif
@@ -763,6 +806,7 @@ inline void partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> 
 ```
 
 ##### function `details::__general_iteration_with_deflation_impl`
+
 ```cpp
 inline void __general_iteration_with_deflation_impl(
     __nm_ptr<cx_mat> &m,
@@ -799,5 +843,13 @@ inline void __general_iteration_with_deflation_impl(
 ```
 
 # Experiment
+
+I will only show the test result of the most important parts of the project, namely: QR Iteration with Deflation.
+
+## Test QR Iteration for Real Symmetric Tridiagonal Matrix (including those matrices similar to them)
+
+
+## Test QR Iteration for General Matrix
+
 
 # Comments
