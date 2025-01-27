@@ -1,6 +1,6 @@
 # Forewords
 
-Project `NebuLA` by Tsumugivolle77 Copyright (C) Reserved.
+Project `NebuLA` by Tsumugivolle77 (My GitHub Username) Copyright (C) Reserved.
 
 I name this project after **N**ebu**LA** instead of **NLA** (Numerical Linear Algebra) since it looks cool.
 
@@ -358,7 +358,6 @@ void step_for_hessenberg(M &hess) {
         auto a = hess.at(j, j);
         auto b = hess.at(j + 1, j);
         givens_matrix<typename M::elem_type> g {a, b, j, j + 1};
-        std::cout << g.c << ' ' << g.s << std::endl;
         hess = apply_givens(g, hess);
         hess = apply_givens(hess, g.transpose());
     }
@@ -594,23 +593,29 @@ To deflate the matrix, we need to find the '0' in the subdiagonal after each ite
 In either case, the resulting matrix (or matrices) will be used as the input of `details::__iteration_with_deflation_impl`, which performs one QR Step with **Wilkinson Shift**, then send the new matrix back to `details::partition`.
 
 ```cpp
+// partition for real matrix
 inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
-        if (std::abs(hess->at(i, i - 1)) < tol * (std::abs(hess->at(i - 1, i - 1)) + std::abs(hess->at(i, i)))) {
-                auto part1 = std::make_shared<mat>(
-                    (*hess)(span(0, i - 1), span(0, i - 1)));
-                auto part2 = std::make_shared<mat>(
-                    (*hess)(span(i, cols - 1), span(i, cols - 1)));
+        if (nearZero(hess, i, tol)) {
+            int j = i - 1;
+            for (; j > 0; --j) {
+                if (!nearZero(hess, j, tol)) break;
+                eigs.emplace_back(hess->at(j, j));
+            }
+            auto part1 = std::make_shared<mat>(
+                (*hess)(span(0, j), span(0, j)));
+            auto part2 = std::make_shared<mat>(
+                (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
-                std::cout << "First subpart:\n"  << *part1 << std::endl;
-                std::cout << "Second subpart:\n" << *part2 << std::endl;
+            std::cout << "First subpart:\n"  << *part1 << std::endl;
+            std::cout << "Second subpart:\n" << *part2 << std::endl;
 #endif
-                hess.reset();
-                __iteration_with_deflation_impl(part1, eigs, tol);
-                __iteration_with_deflation_impl(part2, eigs, tol);
+            hess.reset();
+            __iteration_with_deflation_impl(part1, eigs, tol);
+            __iteration_with_deflation_impl(part2, eigs, tol);
 
             return;
         }
@@ -727,9 +732,14 @@ inline void partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> 
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
-        if (std::abs(hess->at(i, i - 1)) < tol * (std::abs(hess->at(i - 1, i - 1)) + std::abs(hess->at(i, i)))) {
+        if (nearZero(hess, i, tol)) {
+            int j = i - 1;
+            for (; j > 0; --j) {
+                if (!nearZero(hess, j, tol)) break;
+                eigs.emplace_back(hess->at(j, j));
+            }
             auto part1 = std::make_shared<cx_mat>(
-                (*hess)(span(0, i - 1), span(0, i - 1)));
+                (*hess)(span(0, j), span(0, j)));
             auto part2 = std::make_shared<cx_mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG

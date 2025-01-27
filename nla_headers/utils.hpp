@@ -5,8 +5,6 @@
 #ifndef UTILS_H
 #define UTILS_H
 
-#include "givens_matrix.hpp"
-
 // for complex vector
 static Mat<std::complex<double>>
 get_householder_mat(const Col<std::complex<double>> &x) {
