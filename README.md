@@ -572,7 +572,7 @@ I use smart pointer to manage the storage, but the effect is not ideal. Only a v
 
 The two overloads of this function first turn the input matrix into Real Symmetric Tridiagonal Form, then delegates the computation of eigenvalues to `details::__iteration_with_deflation_impl`, which only accepts Real Symmetric Tridiagonal Form as input.
 
-```
+```cpp
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Hermitian
  **  @param m complex hermitian matrix
  **  @param tol tolerance of error
