@@ -68,40 +68,12 @@ M to_hessenberg(const M &matx) {
     return hess;
 }
 
-// get the Hessenberg form of matx
-cx_mat to_hessenberg(const cx_mat &matx) {
-    using elem_type = std::complex<double>;
-
-    if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
-
-    auto hess = matx;
-
-    for (int i = 0; i < hess.n_cols - 2; ++i) {
-        auto x = Col<elem_type>(hess.submat(i + 1, i, hess.n_rows - 1, i));
-        auto H = get_householder_mat(x);
-        auto Qi = Mat<elem_type>(hess.n_rows, hess.n_cols, fill::eye);
-
-        Qi(span(i + 1, Qi.n_rows - 1), span(i + 1, Qi.n_cols - 1)) = H;
-
-        hess = Qi * hess;
-        hess = hess * Qi.ht();
-    }
-
-    for (int i = 2; i < hess.n_rows; ++i) {
-        for (int j = 0; j < i - 1; ++j) {
-            hess.at(i, j) = 0.;
-        }
-    }
-
-    return hess;
-}
-
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `to_hessenberg` into Real Symmetric Tridiagonal
  **  @param H Hermitian Tridiagonal
  **  @return Real Symmetric Tridiagonal, similar to H
 ***/
-mat inline hermitian_tridiag2sym_tridiag(const cx_mat &H)
+inline mat hermitian_tridiag2sym_tridiag(const cx_mat &H)
 {
     using namespace std::complex_literals;
 
