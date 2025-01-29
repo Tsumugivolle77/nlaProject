@@ -47,15 +47,15 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
             std::cout << "Second subpart:\n" << *part2 << std::endl;
 #endif
             hess.reset();
-            __iteration_with_deflation_impl(part1, eigs, tol * norm(*hess, "fro"));
-            __iteration_with_deflation_impl(part2, eigs, tol * norm(*hess, "fro"));
+            __iteration_with_deflation_impl(part1, eigs, tol);
+            __iteration_with_deflation_impl(part2, eigs, tol);
 
             return;
         }
     }
 
     // if no deflate happens, iterate with the original matrix
-    __iteration_with_deflation_impl(hess, eigs, tol * norm(*hess, "fro"));
+    __iteration_with_deflation_impl(hess, eigs, tol);
 #ifdef DEBUG
     std::cout << "No deflation." << std::endl;
 #endif
@@ -120,14 +120,16 @@ namespace qr {
 // function for perform a qr step
 template <typename M>
 void step_for_hessenberg(M &hess) {
-    auto row = hess.n_rows;
+    auto rows = hess.n_rows;
 
-    for (uint j = 0; j < row - 1; ++j) {
+    for (uint j = 0; j < rows - 1; ++j) {
         auto a = hess.at(j, j);
         auto b = hess.at(j + 1, j);
         givens_matrix<typename M::elem_type> g {a, b, j, j + 1};
-        hess = apply_givens(g, hess);
-        hess = apply_givens(hess, g.transpose());
+        std::vector<uint> applied_to(rows - j);
+        std::iota(applied_to.begin(), applied_to.end(), j);
+        hess = apply_givens(g, hess, applied_to);
+        hess = apply_givens(hess, g.transpose(), applied_to);
     }
 }
 
@@ -167,16 +169,20 @@ void step_with_wilkinson_shift(M &hess, const typename M::elem_type &shift) {
         auto a = hess.at(0, 0) - shift;
         auto b = hess.at(1, 0);
         givens_matrix<typename M::elem_type> g {a, b, 0, 1};
-        hess = apply_givens(g, hess);
-        hess = apply_givens(hess, g.transpose());
+        std::vector<uint> applied_to = {0, 1, 2};
+        hess = apply_givens(g, hess, applied_to);
+        hess = apply_givens(hess, g.transpose(), applied_to);
     }
 
     for (uint j = 1; j < row - 1; ++j) {
         auto a = hess.at(j, j - 1);
         auto b = hess.at(j + 1, j - 1);
         givens_matrix<typename M::elem_type> g {a, b, j, j + 1};
-        hess = apply_givens(g, hess);
-        hess = apply_givens(hess, g.transpose());
+        std::vector<uint> applied_to = {};
+        if (j < row - 2) applied_to = {j - 1, j, j + 1, j + 2};
+        else applied_to = {j - 1, j, j + 1};
+        hess = apply_givens(g, hess, applied_to);
+        hess = apply_givens(hess, g.transpose(), applied_to);
     }
 }
 
@@ -194,8 +200,6 @@ inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const mat &tridia
         auto shift = a + d - sign(d) * std::hypot(d, c);
 
         step_with_wilkinson_shift(res, shift);
-
-        // std::cout << "Res after " << i << " Steps:\n" << res << std::endl;
 
         if (details::doesConverge(res)) {
 #ifdef DEBUG

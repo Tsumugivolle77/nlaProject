@@ -5,6 +5,8 @@
 #ifndef GIVENS_MATRIX_H
 #define GIVENS_MATRIX_H
 
+#include "tridiag_matrix.hpp"
+
 template <typename T>
 class givens_matrix {
 public:
@@ -120,6 +122,17 @@ Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
 }
 
 template <typename T>
+Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m, const std::vector<uint> & cols) {
+    auto res = m;
+
+    for (auto col: cols) {
+        res.col(col) = g * res.col(col);
+    }
+
+    return res;
+}
+
+template <typename T>
 Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
     auto res = m;
     uint rows = res.n_rows;
@@ -131,5 +144,64 @@ Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
     return res;
 }
 
+template <typename T>
+Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g, const std::vector<uint> & rows) {
+    auto res = m;
+
+    for (auto row: rows) {
+        res.row(row) = res.row(row) * g;
+    }
+
+    return res;
+}
+
+// !!! NOT IMPLEMENTED
+// inline tridiag_matrix apply_givens_tridiag(const givens_matrix<double> &g, const tridiag_matrix &m) {
+//     auto res = m;
+//     uint j = g.j, k = g.k;
+//     double c = g.c, s = g.s;
+//
+//     double aj = res.at(j, j), ak = res.at(k, k);
+//     double bj = res.at(j, k), bk = res.at(k, j);
+//
+//     res.set(j, j, c * aj + s * bj);
+//     res.set(k, k, s * bk - c * ak);
+//
+//     if (k > 0) {
+//         double sj = res.sub.at(k - 1);
+//         res.sub.at(k - 1) = c * sj - s * res.super.at(k - 1);
+//     }
+//
+//     if (j < res.n_rows - 1) {
+//         double sk = res.super.at(j);
+//         res.super.at(j) = s * res.sub.at(j) + c * sk;
+//     }
+//
+//     return res;
+// }
+//
+// inline tridiag_matrix apply_givens_tridiag(const tridiag_matrix &m, const givens_matrix<double> &g) {
+//     auto res = m;
+//     uint j = g.j, k = g.k;
+//     double c = g.c, s = g.s;
+//
+//     double aj = res.at(j, j), ak = res.at(k, k);
+//     double bj = res.at(j, k), bk = res.at(k, j);
+//
+//     res.set(j, j, c * aj + s * bk);
+//     res.set(k, k, -s * bj + c * ak);
+//
+//     if (j > 0) {
+//         double sj = res.sub.at(j - 1);
+//         res.sub.at(j - 1) = c * sj - s * res.super.at(j - 1);
+//     }
+//
+//     if (k < res.n_rows - 1) {
+//         double sk = res.super.at(k);
+//         res.super.at(k) = s * res.sub.at(k) + c * sk;
+//     }
+//
+//     return res;
+// }
 
 #endif //GIVENS_MATRIX_H
