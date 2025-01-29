@@ -14,7 +14,7 @@ void test() {
     using namespace std::complex_literals;
     using namespace arma;
 
-    const int size = 200;
+    const int size = 500;
 
     cx_mat A(size, size, fill::zeros);
 
@@ -39,25 +39,35 @@ void test() {
     using std::chrono::milliseconds;
 
     auto t1 = high_resolution_clock::now();
-    auto eigs = nebula::qr::iteration_with_deflation(A);
+    // auto eigs = nebula::qr::iteration_with_deflation(A);
+    auto eigs = nebula::qr::iteration_with_shift_for_hermitian(A);
     auto t2 = high_resolution_clock::now();
 
     std::cout << "Computation done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
-    std::cout << "Eigenvalues by my General Iteration with Deflation:\n";
-    for (auto i : eigs) {
-        std::cout << i << '\n';
-    }
+    std::cout << "Eigenvalues by my Iteration with Deflation:\n";
+    eigs.print("Eigenvalues by My:");
+    // for (auto i : eigs) {
+    //     std::cout << i << '\n';
+    // }
 }
 
 void test2() {
     using namespace arma;
-    const int size = 5;
+    const int size = 200;
 
-    arma_rng::set_seed(1919810);
+    mat B(size, size, fill::zeros);
 
-    auto B = mat{ randu(size, size) };
+    for (int i = 0; i < size; ++i) {
+        B(i, i) = i + 1;
+    }
 
-    B.print("The Elems of B:");
+    for (int i = 0; i < size; ++i) {
+        for (int j = i + 1; j < size; ++j) {
+            double value = i + j + 1;
+            B(i, j) = value;
+            B(j, i) = -value;
+        }
+    }
 
     eig_gen(B).print("Eigenvalues by Armadillo:");
 

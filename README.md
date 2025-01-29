@@ -70,7 +70,7 @@ In the following parts, I will:
 
 1. Introduce the code file by file;
 2. Test the feasibility of my work;
-3. Give comments and retrospects.
+3. Give comments and thoughts.
 
 # Code Introduction
 
@@ -86,7 +86,7 @@ I overload the function for both real vector and complex vector.
 
 ```cpp
 // for complex vector
-static Mat<std::complex<double>>
+inline Mat<std::complex<double>>
 get_householder_mat(const Col<std::complex<double>> &x) {
     using namespace std::complex_literals;
 
@@ -103,7 +103,7 @@ get_householder_mat(const Col<std::complex<double>> &x) {
 }
 
 // for real vector
-static Mat<double>
+inline Mat<double>
 get_householder_mat(const Col<double> &x) {
     using namespace std::complex_literals;
 
@@ -167,8 +167,6 @@ We note that, all eigenvalues of Hermitian Matrix are real. We can also derive f
 
 In order to eliminate these imaginary part we need the help of another Diagonal Unitary Matrix. In the following code, you will see how the Diagonal Unitary Matrix is constructed.
 
-(**NOTE:** THE CODES BELOW MAYBE COULD BE OPTIMIZED BY `class givens_matrix`, but I don't figure the way out.)
-
 ```cpp
 /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
  **  from `to_hessenberg` into Real Symmetric Tridiagonal
@@ -200,9 +198,23 @@ inline mat hermitian_tridiag2sym_tridiag(const cx_mat &H)
         diag_entries[i] = std::exp(1i * totphase);
     }
 
-    auto D = diagmat(diag_entries);
+    for (int i = 0; i < rows; ++i) {
+        int nonzero_beg = i > 0 ? i - 1 : i;
+        int nonzero_end = i + 1 < rows ? i + 1 : i;
+        for (int j = nonzero_beg; j <= nonzero_end; ++j) {
+            hermitri.at(i, j) = diag_entries[i] * hermitri.at(i, j);
+        }
+    }
 
-    return { real(D * hermitri * D.ht()) };
+    for (int i = 0; i < rows; ++i) {
+        int nonzero_beg = i > 0 ? i - 1 : i;
+        int nonzero_end = i + 1 < rows ? i + 1 : i;
+        for (int j = nonzero_beg; j <= nonzero_end; ++j) {
+            hermitri.at(j, i) = std::conj(diag_entries[i]) * hermitri.at(j, i);
+        }
+    }
+
+    return real(hermitri);
 }
 ```
 
@@ -444,7 +456,7 @@ In `NebuLA`, matrices with special structures are:
 - Real Symmetric;
 - Hermitian.
 
-The last two are similar to the first one by performing Unitary Transform, whilst the first one can be applied **Perfect Shift** (Lemma 2.5.4).
+The last two are similar to the first one by performing Unitary Transform, whilst the first one can be applied **Wilkinson Shift**.
 
 Thus, I write specialized QR iteration versions for these categories of matrices. As **Thm. 2.5.11** states, the convergence rate for this algorithm is quadratic and in many cases even cubic. (The proof is too long and technical)
 
@@ -532,20 +544,21 @@ Below, the implementation of Francis QR Step is given.
 
 ```cpp
 // Francis QR Step
-template <typename M>
-void francis_step(M &hess) {
+inline void francis_step(mat &hess) {
     {
         // set up the implicit shift
-        using et   = typename M::elem_type;
         uint cols  = hess.n_cols;
-        Mat<et> sm = { hess.submat(cols - 2, cols - 1, cols - 2, cols - 1) };
-        et s       = trace(sm);
-        et t       = det(sm);
-        et h00     = hess.at(0, 0);
-        et h10     = hess.at(1, 0);
+        double a   = hess.at(cols - 2, cols - 2);
+        double b   = hess.at(cols - 1, cols - 2);
+        double c   = hess.at(cols - 2, cols - 1);
+        double d   = hess.at(cols - 1, cols - 1);
+        double s   = a + d;
+        double t   = a * d - b * c;
+        double h00 = hess.at(0, 0);
+        double h10 = hess.at(1, 0);
         auto col0  = hess.col(0);
         auto col1  = hess.col(1);
-        Col<et> w  = h00 * col0 + h10 * col1 - s * col0;
+        colvec w   = h00 * col0 + h10 * col1 - s * col0;
         w[0]      += t;
 
         auto Q = get_householder_mat(w);
@@ -667,11 +680,11 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
         }
     }
 
-    // if no deflate happens, iterate with the original matrix
-    __iteration_with_deflation_impl(hess, eigs, tol);
 #ifdef DEBUG
     std::cout << "No deflation." << std::endl;
 #endif
+    // if no deflate happens, iterate with the original matrix
+    __iteration_with_deflation_impl(hess, eigs, tol);
 }
 ```
 
@@ -739,39 +752,25 @@ inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<
 
 The implementation of this part is very similar to the part above. However, when I tested the code with some even very small real matrices, it failed to converge.
 
-After my observation, this numerical instability is caused when I deflate a 4x4 matrix, of which the eigenvalues consist of at least one eigen pair (denote by $u, v$), into one 1x1 submatrix containing either $u$ or $v$, and one 3x3 submatrix. Afterward, the 3x3 submatrix will never deflate, thus giving rise to a dead end.
+My implementation crashed very often at first.
 
-I solve this problem by setting a condition statement: if the matrix is 4x4, divide it into two 2x2 submatrices, however. It proves effective.
-
-You will see the related snippet in the overload of `details::partition`.
+To be honest I was at a loss and didn't figure out how to fix the bug, until I find that I called `arma::trace` and `arma::det` in my `qr::francis_step`, however, the result of this 2 functions are ridiculous when I print them out in console. As a result I manually computed them and it works well since then.
 
 ##### function `qr::general_iteration_with_deflation`
 
 ```cpp
-/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Complex Matrix
- **  @param m complex matrix
- **  @param tol tolerance of error
- **  @return the complex eigenvalues
- ***/
-inline std::vector<std::complex<double>> general_iteration_with_deflation(cx_mat &m, double tol = 1e-6) {
-    std::vector<std::complex<double>> eigs = {};
-    auto cx = std::make_shared<cx_mat>(m);
-
-    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
-
-    return eigs;
-}
-
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
  **  @param m real matrix
  **  @param tol tolerance of error
+ **  @param iteration_step function used for perform a QR Step
  **  @return the complex eigenvalues
  ***/
-inline std::vector<std::complex<double>> general_iteration_with_deflation(mat &m, double tol = 1e-6) {
-    auto cx = std::make_shared<cx_mat>(cx_mat{ m, mat(m.n_rows, m.n_cols, arma::fill::zeros) });
+inline std::vector<std::complex<double>>
+general_iteration_with_deflation(mat &m, double tol = 1e-6) {
+    auto mp = std::make_shared<mat>(m);
     std::vector<std::complex<double>> eigs = {};
 
-    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
+    details::__general_iteration_with_deflation_impl(mp, eigs, tol);
 
     return eigs;
 }
@@ -780,27 +779,10 @@ inline std::vector<std::complex<double>> general_iteration_with_deflation(mat &m
 ##### function `details::partition`
 
 ```cpp
-// partition for complex matrix
+// partition for real nonsymmetric matrix
 inline void
-partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
+partition(__nm_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
-
-    // For the 4x4 matrix, deflate them as two 2x2 matrices, regardless of how they look like
-    if (cols == 4) {
-        auto part1 = std::make_shared<cx_mat>(
-            (*hess)(span(0, 1), span(0, 1)));
-        auto part2 = std::make_shared<cx_mat>(
-            (*hess)(span(2, cols - 1), span(2, cols - 1)));
-#ifdef DEBUG
-        std::cout << "Full matrix:\n" << *hess << std::endl;
-        std::cout << "First subpart:\n"  << *part1 << std::endl;
-        std::cout << "Second subpart:\n" << *part2 << std::endl;
-#endif
-        hess.reset();
-        __general_iteration_with_deflation_impl(part1, eigs, tol);
-        __general_iteration_with_deflation_impl(part2, eigs, tol);
-        return;
-    };
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
@@ -810,9 +792,9 @@ partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, doubl
                 if (!nearZero(hess, j, tol)) break;
                 eigs.emplace_back(hess->at(j, j));
             }
-            auto part1 = std::make_shared<cx_mat>(
+            auto part1 = std::make_shared<mat>(
                 (*hess)(span(0, j), span(0, j)));
-            auto part2 = std::make_shared<cx_mat>(
+            auto part2 = std::make_shared<mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
             std::cout << "Full matrix:\n" << *hess << std::endl;
@@ -827,11 +809,11 @@ partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, doubl
         }
     }
 
+#ifdef DEBUG
+    hess->print("No deflation:");
+#endif
     // if no deflate happens, iterate with the original matrix
     __general_iteration_with_deflation_impl(hess, eigs, tol);
-#ifdef DEBUG
-    std::cout << "No deflation." << std::endl;
-#endif
 }
 ```
 
@@ -839,7 +821,7 @@ partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, doubl
 
 ```cpp
 inline void __general_iteration_with_deflation_impl(
-    __nm_ptr<cx_mat> &m,
+    __nm_ptr<mat> &m,
     std::vector<std::complex<double>> &eigs,
     double tol)
 {
@@ -874,7 +856,7 @@ inline void __general_iteration_with_deflation_impl(
 
 # Experiment
 
-I will only show the test result of the **most important parts of the project, namely: QR Iteration with Deflation**.
+The test results of my implementation will be shown here.
 
 I verify the results by compare them with the result computed by Armadillo. My results are at least very close to the Armadillo results.
 
@@ -901,29 +883,69 @@ for (int i = 0; i < size; ++i) {
 ```
 
 The time consumed are listed below:
-| size    | time consumption |
-|---------|------------------|
-| 30x30   | 2ms              |
-| 50x50   | 17ms             |
-| 70x70   | 40ms             |
-| 90x90   | 64ms             |
-| 100x100 | 87ms             |
-| 200x200 | 759ms            |
-| 500x500 | 25223ms          |
 
-The estimated Time Complexity is over $O(n^3)$. One of the biggest performance pitfall I know is, when I turned Hermitain Tridiagonal into Real Symmetric Tridiagonal, I applied the full Diagonal Unitary Transformation, which is very costly.
+
+| size    | time consumption (w\ deflation) | time consumption (w\o deflation) |
+| ------- | ------------------------------- | -------------------------------- |
+| 30x30   | 2ms                             | 62ms                             |
+| 50x50   | 15ms                            | 148ms                            |
+| 70x70   | 34ms                            | 272ms                            |
+| 90x90   | 58ms                            | 495ms                            |
+| 100x100 | 90ms                            | 777ms                            |
+| 200x200 | 698ms                           | 5290ms                           |
+| 500x500 | 20556ms                         | 103990ms                         |
+
+Strange is, the estimated Time Complexity of QR Iteration with deflation is over $O(n^3)$, whereas the version without deflation is approx. $O(n^2)$ (with a much larger constant).
+
+**However, theoretically, QR Iteration with deflation is still $O(n^2)$, and in addition with a smaller constant.** This means there's something wrong with my deflation algorithm. Maybe I should use the **reference to the submatrix** of the original matrix, though I don't know how to make it in Armadillo.
 
 ## Test QR Iteration for General Matrix
-(TO BE CONTINUED...)
-The time consumed are listed below:
-| size    | time consumption |
-|---------|------------------|
-| 30x30   | 2ms              |
-| 50x50   | 17ms             |
-| 70x70   | 40ms             |
-| 90x90   | 64ms             |
-| 100x100 | 87ms             |
-| 200x200 | 759ms            |
-| 500x500 | 25223ms          |
 
-# Comments
+For this part, I generate a matrix with following form:
+
+```cpp
+mat B(size, size, fill::zeros);
+
+for (int i = 0; i < size; ++i) {
+    B(i, i) = i + 1;
+}
+
+for (int i = 0; i < size; ++i) {
+    for (int j = i + 1; j < size; ++j) {
+        double value = i + j + 1;
+        B(i, j) = value;
+        B(j, i) = -value;
+    }
+}
+```
+
+At beginning, I used a random matrix for it. But I think this would be unfair since the random matrix may have very tricky structure, which is prone to complicated computations.
+
+The time consumed are listed below. For this time I will not give the time consumption by iteration by Francis Step without deflation, as they will not give the conjugate eigenvalues and lack an effective convergence criterion.
+
+
+| size    | time consumption (w\ deflation) |
+| ------- | ------------------------------- |
+| 30x30   | 2ms                             |
+| 50x50   | 16ms                            |
+| 70x70   | 60ms                            |
+| 90x90   | 304ms                           |
+| 100x100 | 488ms                           |
+| 200x200 | 8615ms                          |
+| 500x500 | UNKNOWN                         |
+
+The ascending speed of the time consumption is horrible, which means my code fails to handle the deflation very correctly.
+
+# Retrospective
+
+At the first glance, doing a project will be much easier than preparing for an oral test. Since, the project only involves the knowledge from the first half of our lectures.
+
+But in fact it's not that case. Writing an efficient algorithm for performing the matrix operations, iterations etc. (esp. for those very large matrix) is a work full of details.
+
+By doing the project, I reviewed the important algorithms once again and learned many interesting things that I've missed out during this semester.
+
+Even so, I failed to make my implementation as good as possible. The Time Complexities of some of my codes are not that optimal.
+
+I didn't implement the computation of eigenvectors, since I think the performance will also be very unsatisfactory if I simply use the inverse power method.
+
+I feel that I still have many things to learn in this field, especially when I witness the marvellous speed of Armadillo giving me the result, while at the same time I have to wait a century for my own results.

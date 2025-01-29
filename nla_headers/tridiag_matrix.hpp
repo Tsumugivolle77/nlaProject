@@ -4,12 +4,6 @@
 
 #ifndef TRIDIAG_HPP
 #define TRIDIAG_HPP
-#include <sys/types.h>
-#include <armadillo>
-
-using namespace arma;
-
-template <typename> class givens_matrix;
 
 class tridiag_matrix {
 public:

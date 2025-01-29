@@ -15,7 +15,7 @@ using __nm_ptr = std::shared_ptr<M>;
 
 inline void __iteration_with_deflation_impl(__nm_ptr<mat> &, std::vector<double> &eigs, double tol);
 
-inline void __general_iteration_with_deflation_impl(__nm_ptr<cx_mat> &, std::vector<std::complex<double>> &eigs, double tol);
+inline void __general_iteration_with_deflation_impl(__nm_ptr<mat> &, std::vector<std::complex<double>> &eigs, double tol);
 
 template <typename M>
 bool doesConverge(const M &hess, double tol = 1e-6)
@@ -61,27 +61,10 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
 #endif
 }
 
-// partition for complex matrix
+// partition for real nonsymmetric matrix
 inline void
-partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
+partition(__nm_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
-
-    // For the 4x4 matrix, deflate them as two 2x2 matrices, regardless of how they look like
-    if (cols == 4) {
-        auto part1 = std::make_shared<cx_mat>(
-            (*hess)(span(0, 1), span(0, 1)));
-        auto part2 = std::make_shared<cx_mat>(
-            (*hess)(span(2, cols - 1), span(2, cols - 1)));
-#ifdef DEBUG
-        std::cout << "Full matrix:\n" << *hess << std::endl;
-        std::cout << "First subpart:\n"  << *part1 << std::endl;
-        std::cout << "Second subpart:\n" << *part2 << std::endl;
-#endif
-        hess.reset();
-        __general_iteration_with_deflation_impl(part1, eigs, tol);
-        __general_iteration_with_deflation_impl(part2, eigs, tol);
-        return;
-    };
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
@@ -91,9 +74,9 @@ partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, doubl
                 if (!nearZero(hess, j, tol)) break;
                 eigs.emplace_back(hess->at(j, j));
             }
-            auto part1 = std::make_shared<cx_mat>(
+            auto part1 = std::make_shared<mat>(
                 (*hess)(span(0, j), span(0, j)));
-            auto part2 = std::make_shared<cx_mat>(
+            auto part2 = std::make_shared<mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
             std::cout << "Full matrix:\n" << *hess << std::endl;
@@ -108,11 +91,11 @@ partition(__nm_ptr<cx_mat> &hess, std::vector<std::complex<double>> &eigs, doubl
         }
     }
 
+#ifdef DEBUG
+    hess->print("No deflation:");
+#endif
     // if no deflate happens, iterate with the original matrix
     __general_iteration_with_deflation_impl(hess, eigs, tol);
-#ifdef DEBUG
-    std::cout << "No deflation." << std::endl;
-#endif
 }
 }
 
@@ -226,20 +209,21 @@ inline vec iteration_with_shift_for_symmetric(const mat &m, uint maxiter = 1000)
 }
 
 // Francis QR Step
-template <typename M>
-void francis_step(M &hess) {
+inline void francis_step(mat &hess) {
     {
         // set up the implicit shift
-        using et   = typename M::elem_type;
         uint cols  = hess.n_cols;
-        Mat<et> sm = { hess.submat(cols - 2, cols - 1, cols - 2, cols - 1) };
-        et s       = trace(sm);
-        et t       = det(sm);
-        et h00     = hess.at(0, 0);
-        et h10     = hess.at(1, 0);
+        double a   = hess.at(cols - 2, cols - 2);
+        double b   = hess.at(cols - 1, cols - 2);
+        double c   = hess.at(cols - 2, cols - 1);
+        double d   = hess.at(cols - 1, cols - 1);
+        double s   = a + d;
+        double t   = a * d - b * c;
+        double h00 = hess.at(0, 0);
+        double h10 = hess.at(1, 0);
         auto col0  = hess.col(0);
         auto col1  = hess.col(1);
-        Col<et> w  = h00 * col0 + h10 * col1 - s * col0;
+        colvec w   = h00 * col0 + h10 * col1 - s * col0;
         w[0]      += t;
 
         auto Q = get_householder_mat(w);
@@ -305,21 +289,6 @@ inline std::vector<double> iteration_with_deflation(mat &m, double tol = 1e-6) {
     return eigs;
 }
 
-/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Complex Matrix
- **  @param m complex matrix
- **  @param tol tolerance of error
- **  @return the complex eigenvalues
- ***/
-inline std::vector<std::complex<double>>
-general_iteration_with_deflation(cx_mat &m, double tol = 1e-6, const std::function<void(cx_mat &)> &iteration_step = qr::francis_step<cx_mat>) {
-    std::vector<std::complex<double>> eigs = {};
-    auto cx = std::make_shared<cx_mat>(m);
-
-    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
-
-    return eigs;
-}
-
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
  **  @param m real matrix
  **  @param tol tolerance of error
@@ -328,10 +297,10 @@ general_iteration_with_deflation(cx_mat &m, double tol = 1e-6, const std::functi
  ***/
 inline std::vector<std::complex<double>>
 general_iteration_with_deflation(mat &m, double tol = 1e-6) {
-    auto cx = std::make_shared<cx_mat>(cx_mat{ m, mat(m.n_rows, m.n_cols, fill::zeros) });
+    auto mp = std::make_shared<mat>(m);
     std::vector<std::complex<double>> eigs = {};
 
-    details::__general_iteration_with_deflation_impl(cx, eigs, tol);
+    details::__general_iteration_with_deflation_impl(mp, eigs, tol);
 
     return eigs;
 }
@@ -387,7 +356,7 @@ inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<
 }
 
 inline void __general_iteration_with_deflation_impl(
-    __nm_ptr<cx_mat> &m,
+    __nm_ptr<mat> &m,
     std::vector<std::complex<double>> &eigs,
     double tol)
 {

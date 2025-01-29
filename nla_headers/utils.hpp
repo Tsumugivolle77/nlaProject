@@ -6,7 +6,7 @@
 #define UTILS_H
 
 // for complex vector
-static Mat<std::complex<double>>
+inline Mat<std::complex<double>>
 get_householder_mat(const Col<std::complex<double>> &x) {
     using namespace std::complex_literals;
 
@@ -23,10 +23,8 @@ get_householder_mat(const Col<std::complex<double>> &x) {
 }
 
 // for real vector
-static Mat<double>
+inline Mat<double>
 get_householder_mat(const Col<double> &x) {
-    using namespace std::complex_literals;
-
     auto x1 = x[0];
     auto e1 = colvec(x.n_rows);
     e1[0] = 1.;
@@ -98,9 +96,23 @@ inline mat hermitian_tridiag2sym_tridiag(const cx_mat &H)
         diag_entries[i] = std::exp(1i * totphase);
     }
 
-    auto D = diagmat(diag_entries);
+    for (int i = 0; i < rows; ++i) {
+        int nonzero_beg = i > 0 ? i - 1 : i;
+        int nonzero_end = i + 1 < rows ? i + 1 : i;
+        for (int j = nonzero_beg; j <= nonzero_end; ++j) {
+            hermitri.at(i, j) = diag_entries[i] * hermitri.at(i, j);
+        }
+    }
 
-    return { real(D * hermitri * D.ht()) };
+    for (int i = 0; i < rows; ++i) {
+        int nonzero_beg = i > 0 ? i - 1 : i;
+        int nonzero_end = i + 1 < rows ? i + 1 : i;
+        for (int j = nonzero_beg; j <= nonzero_end; ++j) {
+            hermitri.at(j, i) = std::conj(diag_entries[i]) * hermitri.at(j, i);
+        }
+    }
+
+    return real(hermitri);
 }
 
 #endif //UTILS_H
