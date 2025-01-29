@@ -14,7 +14,7 @@ void test() {
     using namespace std::complex_literals;
     using namespace arma;
 
-    const int size = 500;
+    const int size = 20;
 
     cx_mat A(size, size, fill::zeros);
 
@@ -39,16 +39,16 @@ void test() {
     using std::chrono::milliseconds;
 
     auto t1 = high_resolution_clock::now();
-    // auto eigs = nebula::qr::iteration_with_deflation(A);
-    auto eigs = nebula::qr::iteration_with_shift_for_hermitian(A);
+    auto eigs = nebula::qr::iteration_with_deflation(A);
+    // auto eigs = nebula::qr::iteration_with_shift_for_hermitian(A);
     auto t2 = high_resolution_clock::now();
 
     std::cout << "Computation done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
     std::cout << "Eigenvalues by my Iteration with Deflation:\n";
-    eigs.print("Eigenvalues by My:");
-    // for (auto i : eigs) {
-    //     std::cout << i << '\n';
-    // }
+    // eigs.print("Eigenvalues by My:");
+    for (auto i : eigs) {
+        std::cout << i << '\n';
+    }
 }
 
 void test2() {
@@ -88,8 +88,8 @@ void test2() {
 }
 
 int main() {
-    // test();
-    test2();
+    test();
+    // test2();
 
     return 0;
 }
