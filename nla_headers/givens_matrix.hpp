@@ -119,11 +119,11 @@ void apply_givens(const givens_matrix<T> &g, Mat<T> &m) {
 
     for (uint i = 0; i < cols; ++i) {
         uint j = g.j, k = g.k;
-        double c = g.c, s = g.s;
-        double vj = m.at(i, j), vk = m.at(i, k);
+        T c = g.c, s = g.s;
+        T vj = m.at(j, i), vk = m.at(k, i);
 
-        m.at(i, j) = c * vj - s * vk;
-        m.at(i, k) = s * vj + c * vk;
+        m.at(j, i) = c * vj - s * vk;
+        m.at(k, i) = s * vj + c * vk;
     }
 }
 
@@ -131,11 +131,11 @@ template <typename T>
 void apply_givens(const givens_matrix<T> &g, Mat<T> &m, const std::vector<uint> & cols) {
     for (auto i : cols) {
         uint j = g.j, k = g.k;
-        double c = g.c, s = g.s;
-        double vj = m.at(i, j), vk = m.at(i, k);
+        T c = g.c, s = g.s;
+        T vj = m.at(j, i), vk = m.at(k, i);
 
-        m.at(i, j) = c * vj - s * vk;
-        m.at(i, k) = s * vj + c * vk;
+        m.at(j, i) = c * vj - s * vk;
+        m.at(k, i) = s * vj + c * vk;
     }
 }
 
@@ -145,11 +145,11 @@ void apply_givens(Mat<T> &m, const givens_matrix<T> &g) {
 
     for (uint i = 0; i < rows; ++i) {
         uint j = g.j, k = g.k;
-        double c = g.c, s = g.s;
-        double vj = m.at(j, i), vk = m.at(k, i);
+        T c = g.c, s = g.s;
+        T vj = m.at(i, j), vk = m.at(i, k);
 
-        m.at(j, i) =  c * vj + s * vk;
-        m.at(k, i) = -s * vj + c * vk;
+        m.at(i, j) =  c * vj + s * vk;
+        m.at(i, k) = -s * vj + c * vk;
     }
 }
 
@@ -157,11 +157,10 @@ template <typename T>
 void apply_givens(Mat<T> &m, const givens_matrix<T> &g, const std::vector<uint> & rows) {
     for (auto i : rows) {
         uint j = g.j, k = g.k;
-        double c = g.c, s = g.s;
-        double vj = m.at(j, i), vk = m.at(k, i);
-
-        m.at(j, i) =  c * vj + s * vk;
-        m.at(k, i) = -s * vj + c * vk;
+        T c = g.c, s = g.s;
+        T vj = m.at(i, j), vk = m.at(i, k);
+        m.at(i, j) =  c * vj + s * vk;
+        m.at(i, k) = -s * vj + c * vk;
     }
 }
 
