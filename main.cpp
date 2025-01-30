@@ -10,11 +10,62 @@
 // or
 // `add_compile_option(-DDEBUG)` in CMakeLists.txt
 
-void test() {
+using namespace arma;
+
+cx_mat create_matrix(const size_t &n, const vec &eigenvalues = vec{1, fill::zeros}) {
+    cx_mat A;
+    if (eigenvalues.size() == 1) {
+        cx_vec diag(n);
+        for (int i = 0; i < n; i++) {
+            diag(i) = cx_double{i + 1., 0};
+        }
+        A = diagmat(diag);
+    } else {
+        cx_vec diag(n);
+        for (int i = 0; i < n; i++) {
+            diag(i) = cx_double{eigenvalues[i], 0};
+        }
+        A = diagmat(diag);
+    }
+
+    for (int j = 0; j < n; ++j) {
+        for (int k = j + 1; k < n; ++k) {
+            const double phi = randu() * 2 * M_PI;
+            const double c = cos(phi);
+            const double s = sin(phi);
+
+            for (int i = 0; i < n; ++i) {
+                auto alpha = A(j, i);
+                auto beta = A(k, i);
+
+                A(j, i) = c * alpha - s * beta;
+                A(k, i) = s * alpha + c * beta;
+            }
+
+            for (int i = 0; i < n; ++i) {
+                auto alpha = A(i, j);
+                auto beta = A(i, k);
+
+                A(i, j) = c * alpha - s * beta;
+                A(i, k) = s * alpha + c * beta;
+            }
+        }
+    }
+
+    for (int i = 0; i < n; ++i) {
+        const double phi = randu() * 2 * M_PI;
+        const cx_double e_i_phi = exp(cx_double(0, phi));
+
+        A.col(i) *= e_i_phi;
+        A.row(i) *= conj(e_i_phi);
+    }
+
+    return A;
+}
+
+void test(const int size, double tol = 1e-6) {
     using namespace std::complex_literals;
     using namespace arma;
-
-    const int size = 20;
 
     cx_mat A(size, size, fill::zeros);
 
@@ -32,23 +83,28 @@ void test() {
 
     // A.print("The Elems of A:");
 
-    eig_gen(A).print("Eigenvalues by Armadillo:");
+    // eig_gen(A).print("Eigenvalues by Armadillo:");
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::milliseconds;
 
+    auto t0 = high_resolution_clock::now();
+    auto M = nebula::hermitian_tridiag2sym_tridiag(nebula::to_hessenberg(A));
     auto t1 = high_resolution_clock::now();
-    auto eigs = nebula::qr::iteration_with_deflation(A);
+    auto eigs = nebula::qr::iteration_with_deflation_for_tridiag(M, tol);
     // auto eigs = nebula::qr::iteration_with_shift_for_hermitian(A);
     auto t2 = high_resolution_clock::now();
 
-    std::cout << "Computation done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
-    std::cout << "Eigenvalues by my Iteration with Deflation:\n";
+    std::cout << "size=" << size << std::endl;
+    std::cout << "Transformation done after " << duration_cast<milliseconds>(t1 - t0).count() << "ms\n";
+    std::cout << "Iteration done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
+    std::cout << "Total time " << duration_cast<milliseconds>(t2 - t0).count() << "ms\n\n";
+    // std::cout << "Eigenvalues by my Iteration with Deflation:\n";
     // eigs.print("Eigenvalues by My:");
-    for (auto i : eigs) {
-        std::cout << i << '\n';
-    }
+    // for (auto i : eigs) {
+    //     std::cout << i << '\n';
+    // }
 }
 
 void test2() {
@@ -88,7 +144,11 @@ void test2() {
 }
 
 int main() {
-    test();
+    int sizes[] = {30, 60, 90, 120, 500, /*1000*/};
+    // for (auto size : sizes) {
+    //     test(size);
+    // }
+    test(500);
     // test2();
 
     return 0;

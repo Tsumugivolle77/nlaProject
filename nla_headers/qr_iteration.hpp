@@ -6,40 +6,32 @@
 #define QR_ITERATION_HPP
 
 namespace qr {
-template <typename M> void francis_step(M &);
+inline void francis_step(mat &);
 }
 
 namespace details {
-template <typename M>
-using __nm_ptr = std::shared_ptr<M>;
+inline void __iteration_with_deflation_impl(std::shared_ptr<mat> &, std::vector<double> &eigs, double tol);
 
-inline void __iteration_with_deflation_impl(__nm_ptr<mat> &, std::vector<double> &eigs, double tol);
-
-inline void __general_iteration_with_deflation_impl(__nm_ptr<mat> &, std::vector<std::complex<double>> &eigs, double tol);
+inline void __general_iteration_with_deflation_impl(std::shared_ptr<mat> &, std::vector<std::complex<double>> &eigs, double tol);
 
 template <typename M>
 bool doesConverge(const M &hess, double tol = 1e-6)
 { return norm(hess.diag(-1), 2) < tol; }
 
 template <typename M>
-bool nearZero(__nm_ptr<M> &hess, int i, double tol) {
+bool nearZero(std::shared_ptr<M> &hess, int i, double tol) {
     return std::abs(hess->at(i, i - 1)) < tol * (std::abs(hess->at(i - 1, i - 1)) + std::abs(hess->at(i, i)));
 }
 
 // partition for real matrix
-inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol = 1e-6) {
+inline void partition(std::shared_ptr<mat> &hess, std::vector<double> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
         if (nearZero(hess, i, tol)) {
-            int j = i - 1;
-            for (; j > 0; --j) {
-                if (!nearZero(hess, j, tol)) break;
-                eigs.emplace_back(hess->at(j, j));
-            }
             auto part1 = std::make_shared<mat>(
-                (*hess)(span(0, j), span(0, j)));
+                (*hess)(span(0, i - 1), span(0, i - 1)));
             auto part2 = std::make_shared<mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
@@ -63,19 +55,14 @@ inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol
 
 // partition for real nonsymmetric matrix
 inline void
-partition(__nm_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
+partition(std::shared_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
 
     // deflate the matrix
     for (int i = cols - 1; i > 0; --i) {
         if (nearZero(hess, i, tol)) {
-            int j = i - 1;
-            for (; j > 0; --j) {
-                if (!nearZero(hess, j, tol)) break;
-                eigs.emplace_back(hess->at(j, j));
-            }
             auto part1 = std::make_shared<mat>(
-                (*hess)(span(0, j), span(0, j)));
+                (*hess)(span(0, i - 1), span(0, i - 1)));
             auto part2 = std::make_shared<mat>(
                 (*hess)(span(i, cols - 1), span(i, cols - 1)));
 #ifdef DEBUG
@@ -289,6 +276,20 @@ inline std::vector<double> iteration_with_deflation(mat &m, double tol = 1e-6) {
     return eigs;
 }
 
+/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Symmetric
+ **  @param m real symmetric matrix
+ **  @param tol tolerance of error
+ **  @return the real eigenvalues
+ ***/
+inline std::vector<double> iteration_with_deflation_for_tridiag(mat &m, double tol = 1e-6) {
+    auto tridiag = std::make_shared<mat>(m);
+    std::vector<double> eigs = {};
+
+    details::__iteration_with_deflation_impl(tridiag, eigs, tol);
+
+    return eigs;
+}
+
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
  **  @param m real matrix
  **  @param tol tolerance of error
@@ -307,7 +308,7 @@ general_iteration_with_deflation(mat &m, double tol = 1e-6) {
 }
 
 namespace details {
-inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<double> &eigs, double tol) {
+inline void __iteration_with_deflation_impl(std::shared_ptr<mat> &tridiag, std::vector<double> &eigs, double tol) {
     // return the eigen value directly for the 1x1 block
     if (tridiag->n_cols == 1) {
         eigs.emplace_back(tridiag->at(0, 0));
@@ -356,7 +357,7 @@ inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<
 }
 
 inline void __general_iteration_with_deflation_impl(
-    __nm_ptr<mat> &m,
+    std::shared_ptr<mat> &m,
     std::vector<std::complex<double>> &eigs,
     double tol)
 {

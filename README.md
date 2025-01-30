@@ -653,7 +653,7 @@ In either case, the resulting matrix (or matrices) will be used as the input of 
 
 ```cpp
 // partition for real matrix
-inline void partition(__nm_ptr<mat> &hess, std::vector<double> &eigs, double tol = 1e-6) {
+inline void partition(std::shared_ptr<mat> &hess, std::vector<double> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
 
     // deflate the matrix
@@ -701,7 +701,7 @@ Thankfully, this question is easy to solve:
 The implementation are given below:
 
 ```cpp
-inline void __iteration_with_deflation_impl(__nm_ptr<mat> &tridiag, std::vector<double> &eigs, double tol) {
+inline void __iteration_with_deflation_impl(std::shared_ptr<mat> &tridiag, std::vector<double> &eigs, double tol) {
     // return the eigen value directly for the 1x1 block
     if (tridiag->n_cols == 1) {
         eigs.emplace_back(tridiag->at(0, 0));
@@ -781,7 +781,7 @@ general_iteration_with_deflation(mat &m, double tol = 1e-6) {
 ```cpp
 // partition for real nonsymmetric matrix
 inline void
-partition(__nm_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
+partition(std::shared_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double tol = 1e-6) {
     auto cols = hess->n_cols;
 
     // deflate the matrix
@@ -821,7 +821,7 @@ partition(__nm_ptr<mat> &hess, std::vector<std::complex<double>> &eigs, double t
 
 ```cpp
 inline void __general_iteration_with_deflation_impl(
-    __nm_ptr<mat> &m,
+    std::shared_ptr<mat> &m,
     std::vector<std::complex<double>> &eigs,
     double tol)
 {
