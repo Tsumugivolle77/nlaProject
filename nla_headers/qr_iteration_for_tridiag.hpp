@@ -1,0 +1,8 @@
+//
+// Created by Tsumugi on 30.01.25.
+//
+
+#ifndef QR_ITERATION_FOR_TRIDIAG_HPP
+#define QR_ITERATION_FOR_TRIDIAG_HPP
+
+#endif //QR_ITERATION_FOR_TRIDIAG_HPP

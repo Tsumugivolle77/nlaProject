@@ -68,9 +68,10 @@ I write test codes in `main.cpp` and implement the various functions for doing t
 
 In the following parts, I will:
 
-1. Introduce the code file by file;
+1. Introduce the initial version of code, file by file (a bit verbose);
 2. Test the feasibility of my work;
-3. Give comments and thoughts.
+3. How I tried to improve the performance of the code;
+4. Give comments and thoughts.
 
 # Code Introduction
 
@@ -334,10 +335,13 @@ inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &
 template <typename T>
 Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
     auto res = m;
-    uint cols = res.n_cols;
+    auto cols = m.n_cols;
+    auto j = g.j, k = g.k;
 
     for (uint i = 0; i < cols; ++i) {
-        res.col(i) = g * res.col(i);
+        auto gcol = g * res.col(i);
+        res.at(j, i) = gcol(j);
+        res.at(k, i) = gcol(k);
     }
 
     return res;
@@ -346,9 +350,12 @@ Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
 template <typename T>
 Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m, const std::vector<uint> & cols) {
     auto res = m;
+    auto j = g.j, k = g.k;
 
     for (auto col: cols) {
-        res.col(col) = g * res.col(col);
+        auto gcol = g * res.col(col);
+        res.at(j, col) = gcol(j);
+        res.at(k, col) = gcol(k);
     }
 
     return res;
@@ -358,9 +365,12 @@ template <typename T>
 Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
     auto res = m;
     uint rows = res.n_rows;
+    auto j = g.j, k = g.k;
 
     for (uint i = 0; i < rows; ++i) {
-        res.row(i) = res.row(i) * g;
+        auto rowg = res.row(i) * g;
+        res.at(i, j) = rowg(j);
+        res.at(i, k) = rowg(k);
     }
 
     return res;
@@ -369,9 +379,12 @@ Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
 template <typename T>
 Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g, const std::vector<uint> & rows) {
     auto res = m;
+    auto j = g.j, k = g.k;
 
     for (auto row: rows) {
-        res.row(row) = res.row(row) * g;
+        auto rowg = res.row(row) * g;
+        res.at(row, j) = rowg(j);
+        res.at(row, k) = rowg(k);
     }
 
     return res;
@@ -762,7 +775,6 @@ To be honest I was at a loss and didn't figure out how to fix the bug, until I f
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
  **  @param m real matrix
  **  @param tol tolerance of error
- **  @param iteration_step function used for perform a QR Step
  **  @return the complex eigenvalues
  ***/
 inline std::vector<std::complex<double>>
@@ -854,7 +866,7 @@ inline void __general_iteration_with_deflation_impl(
 }
 ```
 
-# Experiment
+# Experiment for the previous codes
 
 The test results of my implementation will be shown here.
 
@@ -882,7 +894,7 @@ for (int i = 0; i < size; ++i) {
 }
 ```
 
-The time consumed are listed below:
+The time consumed (both **Transformation to Real Symmetric Tridiagonal** and **QR Iteration**) are listed below:
 
 
 | size    | time consumption (w\ deflation) | time consumption (w\o deflation) |
@@ -895,7 +907,7 @@ The time consumed are listed below:
 | 200x200 | 698ms                           | 5290ms                           |
 | 500x500 | 20556ms                         | 103990ms                         |
 
-Strange is, the estimated Time Complexity of QR Iteration with deflation is over $O(n^3)$, whereas the version without deflation is approx. $O(n^2)$ (with a much larger constant).
+Strange is, even if I separate the 2 stages and compute the duration once again, the estimated Time Complexity of QR Iteration with deflation is still $O(n^3)$, whereas the version without deflation is approx. $O(n^2)$ (with a much larger constant).
 
 **However, theoretically, QR Iteration with deflation is still $O(n^2)$, and in addition with a smaller constant.** This means there's something wrong with my deflation algorithm. Maybe I should use the **reference to the submatrix** of the original matrix, though I don't know how to make it in Armadillo.
 
@@ -934,7 +946,189 @@ The time consumed are listed below. For this time I will not give the time consu
 | 200x200 | 8615ms                          |
 | 500x500 | UNKNOWN                         |
 
-The ascending speed of the time consumption is horrible, which means my code fails to handle the deflation very correctly.
+The ascending speed of the time consumption is horrible, which means my code fails to handle the deflation very efficiently.
+
+# Improve the Performance of Deflation
+
+Since the tested performance was not optimistic, I tried to find ways to fix those issues. I will put down what I did, in this chapter.
+
+## First Thought: Full Matrix to Specilized Tridiagonal Matrix?
+
+For the code above, I used the full matrix instead of a specialized tridiagonal matrix, which only stores the nonzero 3 or 2 diagonals. In fact, I did consider the probable issues in the implementation and only did the necessary operations on my tridiagonal full matrices.
+
+When I read my code over and over, I noticed a possible performance pitfall: Could it be the **copy of the submatrices in deflation**, which is possibly $O(n^2)$, hindering my code from running faster, since the copy of 2 or 3 diagonals is $O(n)$? For that, I also rewrite the code to only copy the (sub/super)diagonal elements.
+
+This attempt was a failure. Changing the copy scheme also did not affect the performance. I guess the copy of array-like objects is optimized by Armadillo or the compiler, as they occupy a **contiguous storage space**.
+
+```cpp
+auto copy_tridiag = [&] (std::shared_ptr<mat> &to, const std::shared_ptr<mat> &from, int row_start, int row_end)
+{
+    for (uint row = row_start; row <= row_end; ++row) {
+        uint col_start = row == row_start ? row : row - 1;
+        uint col_end   = row == row_end   ? row : row + 1;
+        for (uint col = col_start; col <= col_end; ++col) {
+            to->at(row - row_start, col - row_start) = from->at(row, col);
+        }
+    }
+};
+```
+
+## TOO MUCH Recursions?
+
+I used **Depth First Pattern**, when I implemented my QR Iteration with Deflation:
+
+1. Deflate the matrix;
+2. Deflate the submatrix of the matrix;
+3. Deflate the submatrix of the submatrix...
+
+Following this pattern, the **depth of the runtime stack could be insanely large**. What if I use a **queue** and perform **Breadth First Pattern** on the matrix? Like:
+
+1. Deflate the matrix until there's no matrix in the **queue** to deflate;
+2. Pop the matrix out of **queue**;
+3. Add the deflated submatrices to the **queue**...
+
+This shall tremendously reduce the depth of the runtime stack. The implementation is given below. However, this time I was also not lucky enough:
+
+* 30x30: 1ms
+* 60x60: 8ms
+* 90x90: 26ms
+* ...
+
+This is again absolutely $O(n^3)$ and these running times are all familiar numbers to me, in that they have never changed much since I test my codes.
+
+```cpp
+/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Symmetric
+ **  @param m real symmetric matrix
+ **  @param tol tolerance of error
+ **  @return the real eigenvalues
+ ***/
+inline std::vector<double> iteration_with_deflation_for_tridiag_using_BFS(mat &m, double tol = 1e-6) {
+    auto mptr = std::make_shared<mat>(m);
+    std::vector<double> eigs = {};
+    std::queue<std::shared_ptr<mat>> submats;
+    submats.push(mptr);
+
+    uint maxiter = m.n_rows * m.n_cols;
+    uint i = 0;
+
+    while (!submats.empty() && i++ < maxiter) {
+        auto &tridiag = submats.front();
+
+        // return the eigen value directly for the 1x1 block
+        if (tridiag->n_cols == 1) {
+            eigs.emplace_back(tridiag->at(0, 0));
+            submats.pop();
+            continue;
+        }
+
+        // for 2x2 matrix we have simple formula for it
+        if (tridiag->n_cols == 2) {
+            double a = tridiag->at(0, 0), b = tridiag->at(0, 1),
+                   c = tridiag->at(1, 0), d = tridiag->at(1, 1);
+
+            if (std::abs(c) > tol * (std::abs(a) + std::abs(d))) {
+                double trace = a + d;
+                double determinant = a * d - b * c;
+                double delta = trace * trace - 4 * determinant;
+
+                double sqrt_delta = std::sqrt(delta);
+                double lambda1 = (trace + sqrt_delta) / 2.0;
+                double lambda2 = (trace - sqrt_delta) / 2.0;
+
+                eigs.emplace_back(lambda1);
+                eigs.emplace_back(lambda2);
+            } else {
+                eigs.emplace_back(a);
+                eigs.emplace_back(d);
+            }
+            submats.pop();
+            continue;
+        }
+
+        {
+            auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
+            auto cols = tridiag->n_cols;
+            auto a = tridiag->at(cols - 2, cols - 2);
+            auto b = tridiag->at(cols - 2, cols - 1);
+            auto d = tridiag->at(cols - 1, cols - 1);
+            auto sigma = (a - d) / 2.;
+            auto shift = d + sigma - sign(sigma) * hypot(sigma, b);
+            step_with_wilkinson_shift(*tridiag, shift);
+        }
+
+        auto cols = tridiag->n_cols;
+
+        std::vector<uint> deflatedIndices = {};
+
+        // deflate the matrix
+        for (int j = cols - 1; j > 0; --j) {
+            if (details::nearZero(tridiag, j, tol)) {
+                deflatedIndices.emplace_back(j);
+            }
+        }
+
+        if (!deflatedIndices.empty()) {
+            for (uint j = 0; j < deflatedIndices.size(); ++j) {
+                uint index = deflatedIndices[j];
+
+                auto copy_tridiag = [&] (std::shared_ptr<mat> &to, const std::shared_ptr<mat> &from, int row_start, int row_end)
+                {
+                    for (uint row = row_start; row <= row_end; ++row) {
+                        uint col_start = row == row_start ? row : row - 1;
+                        uint col_end   = row == row_end   ? row : row + 1;
+                        for (uint col = col_start; col <= col_end; ++col) {
+                            to->at(row - row_start, col - row_start) = from->at(row, col);
+                        }
+                    }
+                };
+
+                if (j == 0) {
+                    uint start = index;
+                    uint last = deflatedIndices.size() != 1 ? deflatedIndices[1] : 0;
+
+                    auto submat1 = std::make_shared<mat>(cols - start, cols - start, fill::zeros);
+                    copy_tridiag(submat1, tridiag, start, cols - 1);
+                    auto submat2 = std::make_shared<mat>(start - last, start - last, fill::zeros);
+                    copy_tridiag(submat2, tridiag, last, start - 1);
+
+                    submats.push(submat1);
+                    submats.push(submat2);
+                } else if (j == deflatedIndices.size() - 1) {
+                    uint start = 0;
+                    uint end = index - 1;
+
+                    auto submat = std::make_shared<mat>(end - start + 1, end - start + 1, fill::zeros);
+                    copy_tridiag(submat, tridiag, start, end);
+                    submats.push(submat);
+                } else {
+                    uint start = deflatedIndices[j + 1];
+                    uint end   = index - 1;
+
+                    auto submat = std::make_shared<mat>(end - start + 1, end - start + 1, fill::zeros);
+                    copy_tridiag(submat, tridiag, start, end);
+                    submats.push(submat);
+                }
+            }
+            submats.pop();
+        }
+
+        // if no deflate happens, iterate with the original matrix, don't pop
+    }
+
+    return eigs;
+}
+```
+
+## Last Resort: Refactor with a tridiagonal class
+Till now, I have tried almost every possible ways to reduce Time Complexity:
+- Checked the Wilkinson Shift;
+- Avoid the possible redundant operations on zero entries;
+- Breadth First Pattern to evade recursions;
+- Copy the tridiagonal matrix.
+
+And I also used smart pointer manage the storage to prevent the possible heap overflow, and reduce Space Complexity.
+
+But it appears none of them did help. It looks like the only thing I can do is rewrite my code with a specialized tridiagonal class.
 
 # Retrospective
 

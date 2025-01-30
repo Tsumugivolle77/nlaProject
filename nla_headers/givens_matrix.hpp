@@ -112,10 +112,13 @@ inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &
 template <typename T>
 Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
     auto res = m;
-    uint cols = res.n_cols;
+    auto cols = m.n_cols;
+    auto j = g.j, k = g.k;
 
     for (uint i = 0; i < cols; ++i) {
-        res.col(i) = g * res.col(i);
+        auto gcol = g * res.col(i);
+        res.at(j, i) = gcol(j);
+        res.at(k, i) = gcol(k);
     }
 
     return res;
@@ -124,9 +127,12 @@ Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
 template <typename T>
 Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m, const std::vector<uint> & cols) {
     auto res = m;
+    auto j = g.j, k = g.k;
 
     for (auto col: cols) {
-        res.col(col) = g * res.col(col);
+        auto gcol = g * res.col(col);
+        res.at(j, col) = gcol(j);
+        res.at(k, col) = gcol(k);
     }
 
     return res;
@@ -136,9 +142,12 @@ template <typename T>
 Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
     auto res = m;
     uint rows = res.n_rows;
+    auto j = g.j, k = g.k;
 
     for (uint i = 0; i < rows; ++i) {
-        res.row(i) = res.row(i) * g;
+        auto rowg = res.row(i) * g;
+        res.at(i, j) = rowg(j);
+        res.at(i, k) = rowg(k);
     }
 
     return res;
@@ -147,9 +156,12 @@ Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
 template <typename T>
 Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g, const std::vector<uint> & rows) {
     auto res = m;
+    auto j = g.j, k = g.k;
 
     for (auto row: rows) {
-        res.row(row) = res.row(row) * g;
+        auto rowg = res.row(row) * g;
+        res.at(row, j) = rowg(j);
+        res.at(row, k) = rowg(k);
     }
 
     return res;

@@ -162,10 +162,9 @@ inline vec iteration_with_shift_for_real_symmetric_tridiagonal(const mat &tridia
 
     for (uint i = 0; i < maxiter; ++i) {
         auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
-        const auto &r = res;
-        auto a = r.at(cols - 1, cols - 1);
-        auto b = r.at(cols - 2, cols - 2);
-        auto c = r.at(cols - 1, cols - 2);
+        auto a = res.at(cols - 1, cols - 1);
+        auto b = res.at(cols - 2, cols - 2);
+        auto c = res.at(cols - 1, cols - 2);
         auto d = (b - a) / 2.;
         auto shift = a + d - sign(d) * std::hypot(d, c);
 
@@ -290,10 +289,130 @@ inline std::vector<double> iteration_with_deflation_for_tridiag(mat &m, double t
     return eigs;
 }
 
+/*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Symmetric
+ **  @param m real symmetric matrix
+ **  @param tol tolerance of error
+ **  @return the real eigenvalues
+ ***/
+inline std::vector<double> iteration_with_deflation_for_tridiag_using_BFS(mat &m, double tol = 1e-6) {
+    auto mptr = std::make_shared<mat>(m);
+    std::vector<double> eigs = {};
+    std::queue<std::shared_ptr<mat>> submats;
+    submats.push(mptr);
+
+    uint maxiter = m.n_rows * m.n_cols;
+    uint i = 0;
+
+    while (!submats.empty() && i++ < maxiter) {
+        auto &tridiag = submats.front();
+
+        // return the eigen value directly for the 1x1 block
+        if (tridiag->n_cols == 1) {
+            eigs.emplace_back(tridiag->at(0, 0));
+            submats.pop();
+            continue;
+        }
+
+        // for 2x2 matrix we have simple formula for it
+        if (tridiag->n_cols == 2) {
+            double a = tridiag->at(0, 0), b = tridiag->at(0, 1),
+                   c = tridiag->at(1, 0), d = tridiag->at(1, 1);
+
+            if (std::abs(c) > tol * (std::abs(a) + std::abs(d))) {
+                double trace = a + d;
+                double determinant = a * d - b * c;
+                double delta = trace * trace - 4 * determinant;
+
+                double sqrt_delta = std::sqrt(delta);
+                double lambda1 = (trace + sqrt_delta) / 2.0;
+                double lambda2 = (trace - sqrt_delta) / 2.0;
+
+                eigs.emplace_back(lambda1);
+                eigs.emplace_back(lambda2);
+            } else {
+                eigs.emplace_back(a);
+                eigs.emplace_back(d);
+            }
+            submats.pop();
+            continue;
+        }
+
+        {
+            auto sign = [] (const auto &num) { return num >= 0 ? 1 : -1; };
+            auto cols = tridiag->n_cols;
+            auto a = tridiag->at(cols - 2, cols - 2);
+            auto b = tridiag->at(cols - 2, cols - 1);
+            auto d = tridiag->at(cols - 1, cols - 1);
+            auto sigma = (a - d) / 2.;
+            auto shift = d + sigma - sign(sigma) * hypot(sigma, b);
+            step_with_wilkinson_shift(*tridiag, shift);
+        }
+
+        auto cols = tridiag->n_cols;
+
+        std::vector<uint> deflatedIndices = {};
+
+        // deflate the matrix
+        for (int j = cols - 1; j > 0; --j) {
+            if (details::nearZero(tridiag, j, tol)) {
+                deflatedIndices.emplace_back(j);
+            }
+        }
+
+        if (!deflatedIndices.empty()) {
+            for (uint j = 0; j < deflatedIndices.size(); ++j) {
+                uint index = deflatedIndices[j];
+
+                auto copy_tridiag = [&] (std::shared_ptr<mat> &to, const std::shared_ptr<mat> &from, int row_start, int row_end)
+                {
+                    for (uint row = row_start; row <= row_end; ++row) {
+                        uint col_start = row == row_start ? row : row - 1;
+                        uint col_end   = row == row_end   ? row : row + 1;
+                        for (uint col = col_start; col <= col_end; ++col) {
+                            to->at(row - row_start, col - row_start) = from->at(row, col);
+                        }
+                    }
+                };
+
+                if (j == 0) {
+                    uint start = index;
+                    uint last = deflatedIndices.size() != 1 ? deflatedIndices[1] : 0;
+
+                    auto submat1 = std::make_shared<mat>(cols - start, cols - start, fill::zeros);
+                    copy_tridiag(submat1, tridiag, start, cols - 1);
+                    auto submat2 = std::make_shared<mat>(start - last, start - last, fill::zeros);
+                    copy_tridiag(submat2, tridiag, last, start - 1);
+
+                    submats.push(submat1);
+                    submats.push(submat2);
+                } else if (j == deflatedIndices.size() - 1) {
+                    uint start = 0;
+                    uint end = index - 1;
+
+                    auto submat = std::make_shared<mat>(end - start + 1, end - start + 1, fill::zeros);
+                    copy_tridiag(submat, tridiag, start, end);
+                    submats.push(submat);
+                } else {
+                    uint start = deflatedIndices[j + 1];
+                    uint end   = index - 1;
+
+                    auto submat = std::make_shared<mat>(end - start + 1, end - start + 1, fill::zeros);
+                    copy_tridiag(submat, tridiag, start, end);
+                    submats.push(submat);
+                }
+            }
+            submats.pop();
+        }
+
+        // if no deflate happens, iterate with the original matrix, don't pop
+    }
+
+    return eigs;
+}
+
 /*** !!! SUBTASK 2-3: QR Iteration with Deflation for Real Matrix
  **  @param m real matrix
  **  @param tol tolerance of error
- **  @param iteration_step function used for perform a QR Step
  **  @return the complex eigenvalues
  ***/
 inline std::vector<std::complex<double>>
