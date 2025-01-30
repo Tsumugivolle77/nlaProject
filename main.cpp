@@ -83,7 +83,7 @@ void test(const int size, double tol = 1e-6) {
 
     // A.print("The Elems of A:");
 
-    // eig_gen(A).print("Eigenvalues by Armadillo:");
+    eig_gen(A).print("Eigenvalues by Armadillo:");
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -145,10 +145,10 @@ void test2() {
 
 int main() {
     int sizes[] = {30, 60, 90, 120, 500, /*1000*/};
-    // for (auto size : sizes) {
-    //     test(size);
-    // }
-    test(500);
+    for (auto size : sizes) {
+        test(size);
+    }
+
     // test2();
 
     return 0;

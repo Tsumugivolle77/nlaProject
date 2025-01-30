@@ -64,13 +64,14 @@ givens_matrix<T>
 givens_matrix<T>::transpose() const
 { return {j, k, c, -s}; }
 
-inline Row<std::complex<double>> operator*(const Row<std::complex<double>> &v, const givens_matrix<std::complex<double>> &g) {
+inline Row<std::complex<double>> operator*(Row<std::complex<double>> &v, const givens_matrix<std::complex<double>> &g) {
     auto res = v;
     uint j = g.j, k = g.k;
     std::complex<double> c = g.c, s = g.s;
+    std::complex<double> vj = v[j], vk = v[k];
 
-    res[j] = c * v[j] - std::conj(s) * v[k];
-    res[k] = s * v[j] + c * v[k];
+    res[j] = c * vj - std::conj(s) * vk;
+    res[k] = s * vj + c * vk;
 
     return res;
 }
@@ -79,80 +80,89 @@ inline Col<std::complex<double>> operator*(const givens_matrix<std::complex<doub
     auto res = v;
     uint j = g.j, k = g.k;
     std::complex<double> c = g.c, s = g.s;
+    std::complex<double> vj = v[j], vk = v[k];
 
-    res[j] = c * v[j] + s * v[k];
-    res[k] = -std::conj(s) * v[j] + c * v[k];
-
-    return res;
-}
-
-inline Col<double> operator*(const givens_matrix<double> &g, const Col<double> &v) {
-    auto res = v;
-    uint j = g.j, k = g.k;
-    double c = g.c, s = g.s;
-
-    res[j] = c * v[j] + s * v[k];
-    res[k] = -s * v[j] + c * v[k];
+    res[j] = c * vj + s * vk;
+    res[k] = -std::conj(s) * vj + c * vk;
 
     return res;
 }
 
-
-inline Row<double> operator*(const Row<double> &v, const givens_matrix<double> &g) {
+inline Col<double> operator*(const givens_matrix<double> &g, Col<double> &v) {
     auto res = v;
     uint j = g.j, k = g.k;
     double c = g.c, s = g.s;
+    double vj = v[j], vk = v[k];
 
-    res[j] = c * v[j] - s * v[k];
-    res[k] = s * v[j] + c * v[k];
+    res[j] =  c * vj + s * vk;
+    res[k] = -s * vj + c * vk;
+
+    return res;
+}
+
+
+inline Row<double> operator*(Row<double> &v, const givens_matrix<double> &g) {
+    auto res = v;
+    uint j = g.j, k = g.k;
+    double c = g.c, s = g.s;
+    double vj = v[j], vk = v[k];
+
+    res[j] = c * vj - s * vk;
+    res[k] = s * vj + c * vk;
 
     return res;
 }
 
 template <typename T>
-Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m) {
-    auto res = m;
-    uint cols = res.n_cols;
+void apply_givens(const givens_matrix<T> &g, Mat<T> &m) {
+    uint cols = m.n_cols;
 
     for (uint i = 0; i < cols; ++i) {
-        res.col(i) = g * res.col(i);
-    }
+        uint j = g.j, k = g.k;
+        double c = g.c, s = g.s;
+        double vj = m.at(i, j), vk = m.at(i, k);
 
-    return res;
+        m.at(i, j) = c * vj - s * vk;
+        m.at(i, k) = s * vj + c * vk;
+    }
 }
 
 template <typename T>
-Mat<T> apply_givens(const givens_matrix<T> &g, const Mat<T> &m, const std::vector<uint> & cols) {
-    auto res = m;
+void apply_givens(const givens_matrix<T> &g, Mat<T> &m, const std::vector<uint> & cols) {
+    for (auto i : cols) {
+        uint j = g.j, k = g.k;
+        double c = g.c, s = g.s;
+        double vj = m.at(i, j), vk = m.at(i, k);
 
-    for (auto col: cols) {
-        res.col(col) = g * res.col(col);
+        m.at(i, j) = c * vj - s * vk;
+        m.at(i, k) = s * vj + c * vk;
     }
-
-    return res;
 }
 
 template <typename T>
-Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g) {
-    auto res = m;
-    uint rows = res.n_rows;
+void apply_givens(Mat<T> &m, const givens_matrix<T> &g) {
+    uint rows = m.n_rows;
 
     for (uint i = 0; i < rows; ++i) {
-        res.row(i) = res.row(i) * g;
-    }
+        uint j = g.j, k = g.k;
+        double c = g.c, s = g.s;
+        double vj = m.at(j, i), vk = m.at(k, i);
 
-    return res;
+        m.at(j, i) =  c * vj + s * vk;
+        m.at(k, i) = -s * vj + c * vk;
+    }
 }
 
 template <typename T>
-Mat<T> apply_givens(const Mat<T> &m, const givens_matrix<T> &g, const std::vector<uint> & rows) {
-    auto res = m;
+void apply_givens(Mat<T> &m, const givens_matrix<T> &g, const std::vector<uint> & rows) {
+    for (auto i : rows) {
+        uint j = g.j, k = g.k;
+        double c = g.c, s = g.s;
+        double vj = m.at(j, i), vk = m.at(k, i);
 
-    for (auto row: rows) {
-        res.row(row) = res.row(row) * g;
+        m.at(j, i) =  c * vj + s * vk;
+        m.at(k, i) = -s * vj + c * vk;
     }
-
-    return res;
 }
 
 // !!! NOT IMPLEMENTED
