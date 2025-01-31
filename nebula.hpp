@@ -4,15 +4,11 @@
 
 #ifndef NLA_HPP
 #define NLA_HPP
-#include <armadillo>
-#include <complex>
 
-namespace nebula {
-using namespace arma;
 #include "nla_headers/utils.hpp"
-#include "nla_headers/givens_matrix.hpp"
 #include "nla_headers/tridiag_matrix.hpp"
+#include "nla_headers/givens_matrix.hpp"
 #include "nla_headers/qr_iteration.hpp"
-}
+#include "nla_headers/qr_iteration_for_tridiag.hpp"
 
 #endif //NLA_HPP

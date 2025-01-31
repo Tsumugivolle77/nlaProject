@@ -12,7 +12,7 @@ It will be temporarily invisible until submission deadline comes.
 
 Since the document is written as Markdown, and rendered as PDF afterward, some of the code blocks cannot be fully viewed.
 
-For displaying the complete code block, I also will attach the original Markdown file `README.md`.
+For displaying the complete code block when it causes hardship for reading, I also will attach the original Markdown file `README.md`.
 
 ## Prerequisites for compiling project successfully
 
@@ -38,14 +38,13 @@ or
 
 ## Overview of the Project Structure
 
-The structure of the project looks like:
+Initially, the structure of the project looks like:
 
 ```
 .
 └── nlaProject/
     ├── nla_headers/
     │   ├── utils.hpp
-    │   ├── tridiag_matrix.hpp (not fully implemented and applied to computation!!!)
     │   ├── givens_matrix.hpp
     │   ├── qr_iteration.hpp
     │   └── README.md (this file)
@@ -53,15 +52,41 @@ The structure of the project looks like:
     └── nebula.hpp
 ```
 
-All files in `./nlaProject/nla_headers/` are included in `nla.hpp` in `namespace nebula`:
+To solve some specific performance issues in chapter 3, and make the project more readable, I:
+
+- introduced new classes and functions to refactor my code;
+- separate non-template declarations from definitions in .cpp.
+
+The new structure looks like:
+
+```
+.
+└── nlaProject/
+    ├── nla_headers/
+    │   ├── utils.hpp
+    │   ├── utils.cpp
+    │   ├── tridiag_matrix.hpp
+    │   ├── tridiag_matrix.cpp
+    │   ├── nla_headers/qr_iteration_for_tridiag.hpp
+    │   ├── nla_headers/qr_iteration_for_tridiag.cpp
+    │   ├── givens_matrix.hpp
+    │   ├── givens_matrix.cpp
+    │   ├── qr_iteration.hpp
+    │   ├── qr_iteration.cpp
+    │   └── README.md (this file)
+    ├── main.cpp
+    ├── examples.hpp (including functions for test my code)
+    ├── examples.cpp
+    └── nebula.hpp
+```
+
+All .hpp files in `./nlaProject/nla_headers/` are included in `nla.hpp` in `namespace nebula`:
 
 ```cpp
-namespace nebula {
-using namespace arma;
 #include "nla_headers/nla_mat.hpp"
 #include "nla_headers/givens_matrix.hpp"
 #include "nla_headers/qr_iteration.hpp"
-}
+...
 ```
 
 I write test codes in `main.cpp` and implement the various functions for doing tridiagonalization and QR iteration with shift and deflation in the other headers or sources.
@@ -69,11 +94,11 @@ I write test codes in `main.cpp` and implement the various functions for doing t
 In the following parts, I will:
 
 1. Introduce the initial version of code, file by file (a bit verbose);
-2. Test the feasibility of my work;
-3. How I tried to improve the performance of the code;
-4. Give comments and thoughts.
+2. Test the feasibility and performance of my work given in chapter 1.;
+3. How I attempted to improve the performance of the code, and to make it better than that of chapter 1.;
+4. Give comments and retrospectives.
 
-# Code Introduction
+# Code (initial version) Introduction
 
 ## `utils.hpp`
 
@@ -868,9 +893,11 @@ inline void __general_iteration_with_deflation_impl(
 
 # Experiment for the previous codes
 
-The test results of my implementation will be shown here.
+The test results of my implementation will be shown in this chapter.
 
-I verify the results by compare them with the result computed by Armadillo. My results are at least very close to the Armadillo results.
+I verify the results by compare them with the result computed by Armadillo. My results are at least very close to the Armadillo results. But when it comes to performance, the previous code only gives a bad outcome. In the next chapter, I will talk about that.
+
+I run the code on `Apple M3 Pro` with `18 GB` RAM.
 
 ## Test QR Iteration for Real Symmetric Tridiagonal Matrix (start with those matrices similar to them)
 
@@ -907,7 +934,7 @@ The time consumed (both **Transformation to Real Symmetric Tridiagonal** and **Q
 | 200x200 | 698ms                           | 5290ms                           |
 | 500x500 | 20556ms                         | 103990ms                         |
 
-Strange is, even if I separate the 2 stages and compute the duration once again, the estimated Time Complexity of QR Iteration with deflation is still $O(n^3)$, whereas the version without deflation is approx. $O(n^2)$ (with a much larger constant).
+Strange is, **even if I separate the 2 stages and compute the duration once again**, the estimated Time Complexity of QR Iteration with deflation is still $O(n^3)$, whereas the version without deflation is approx. $O(n^2)$ (with a much larger constant).
 
 **However, theoretically, QR Iteration with deflation is still $O(n^2)$, and in addition with a smaller constant.** This means there's something wrong with my deflation algorithm. Maybe I should use the **reference to the submatrix** of the original matrix, though I don't know how to make it in Armadillo.
 
@@ -958,7 +985,7 @@ For the code above, I used the full matrix instead of a specialized tridiagonal 
 
 When I read my code over and over, I noticed a possible performance pitfall: Could it be the **copy of the submatrices in deflation**, which is possibly $O(n^2)$, hindering my code from running faster, since the copy of 2 or 3 diagonals is $O(n)$? For that, I also rewrite the code to only copy the (sub/super)diagonal elements.
 
-This attempt was a failure. Changing the copy scheme also did not affect the performance. I guess the copy of array-like objects is optimized by Armadillo or the compiler, as they occupy a **contiguous storage space**.
+This attempt was a failure. Changing the copy scheme also did not affect the performance. I guess the copy of array-like objects is optimized by Armadillo or the compiler, as they occupy a **contiguous storage space**. (This might be proven wrong)
 
 ```cpp
 auto copy_tridiag = [&] (std::shared_ptr<mat> &to, const std::shared_ptr<mat> &from, int row_start, int row_end)
@@ -1003,10 +1030,9 @@ This is again absolutely $O(n^3)$ and these running times are all familiar numbe
  **  @return the real eigenvalues
  ***/
 inline std::vector<double> iteration_with_deflation_for_tridiag_using_BFS(mat &m, double tol = 1e-6) {
-    auto mptr = std::make_shared<mat>(m);
     std::vector<double> eigs = {};
     std::queue<std::shared_ptr<mat>> submats;
-    submats.push(mptr);
+    submats.push(std::make_shared<mat>(m));
 
     uint maxiter = m.n_rows * m.n_cols;
     uint i = 0;
@@ -1119,8 +1145,10 @@ inline std::vector<double> iteration_with_deflation_for_tridiag_using_BFS(mat &m
 }
 ```
 
-## Last Resort: Refactor with a tridiagonal class
+## Last Resort: Refactor with a specialized tridiagonal class
+
 Till now, I have tried almost every possible ways to reduce Time Complexity:
+
 - Checked the Wilkinson Shift;
 - Avoid the possible redundant operations on zero entries;
 - Breadth First Pattern to evade recursions;
@@ -1128,13 +1156,34 @@ Till now, I have tried almost every possible ways to reduce Time Complexity:
 
 And I also used smart pointer manage the storage to prevent the possible heap overflow, and reduce Space Complexity.
 
-But it appears none of them did help. It looks like the only thing I can do is rewrite my code with a specialized tridiagonal class.
+But it appears none of them did help. It looks like the only thing I can do is rewrite my code with a specialized tridiagonal class. In fact, all my struggles were to save myself from this worst situation.
+
+After I discussed with one of my friend, I am very sure it can only be those inevitable but numerous copy costs that contribute to the bad performance.
+
+The revision of those important parts of my code are listed below:
+
+- A class `tridiag_matrix`, with several constructors (See `tridiag_matrix.hpp/.cpp`);
+- Specialized QR Step with Wilkinson Shift for this new class (See `qr_iteration.hpp/.cpp`. This part is interesting to read);
+- Specialized QR Iteration with Deflation for this new class (Also see `qr_iteration.hpp/.cpp`).
+
+The full code will be too long to display in this section, but I will show you how fast it is right now:
+
+| size      | time consumption |
+| --------- | ---------------- |
+| 30x30     | 0ms              |
+| 60x60     | 1ms              |
+| 90x90     | 3ms              |
+| 120x120   | 6ms              |
+| 500x500   | 98ms             |
+| 1000x1000 | 409ms            |
+
+It's at first $O(n^2)$ and moreover superfast compared with the previous outcomes.
 
 # Retrospective
 
 At the first glance, doing a project will be much easier than preparing for an oral test. Since, the project only involves the knowledge from the first half of our lectures.
 
-But in fact it's not that case. Writing an efficient algorithm for performing the matrix operations, iterations etc. (esp. for those very large matrix) is a work full of details.
+But in fact it's not that case. Writing an efficient algorithm for performing the matrix operations, iterations etc. (esp. for those very large matrix) is a earnest work full with details.
 
 By doing the project, I reviewed the important algorithms once again and learned many interesting things that I've missed out during this semester.
 
@@ -1142,4 +1191,4 @@ Even so, I failed to make my implementation as good as possible. The Time Comple
 
 I didn't implement the computation of eigenvectors, since I think the performance will also be very unsatisfactory if I simply use the inverse power method.
 
-I feel that I still have many things to learn in this field, especially when I witness the marvellous speed of Armadillo giving me the result, while at the same time I have to wait a century for my own results.
+I feel that I still have many things to learn in this field, especially when I witness the marvellous speed of Armadillo giving me the result, while at the same time I have to wait a century for my own results. (It might have used multi-thread and some optimization tricks)
