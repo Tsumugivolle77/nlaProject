@@ -1163,21 +1163,23 @@ After I discussed with one of my friend, I am very sure it can only be those ine
 The revision of those important parts of my code are listed below:
 
 - A class `tridiag_matrix`, with several constructors (See `tridiag_matrix.hpp/.cpp`);
-- Specialized QR Step with Wilkinson Shift for this new class (See `qr_iteration.hpp/.cpp`. This part is interesting to read);
-- Specialized QR Iteration with Deflation for this new class (Also see `qr_iteration.hpp/.cpp`).
+- Specialized QR Step with Wilkinson Shift for this new class (See `qr_iteration.hpp/.cpp`. This part is interesting to read, I used 2 queues for storing the bulges);
+- Specialized QR Iteration with Deflation for this new class (Also see `qr_iteration.hpp/.cpp`);
+- Improved transformation into Hessenberg Matrix `to_hessenberg_optimized`, which do not need to apply the full matrix multiplication. (See `utils.hpp/.cpp`)
 
 The full code will be too long to display in this section, but I will show you how fast it is right now:
 
-| size      | time consumption |
-| --------- | ---------------- |
-| 30x30     | 0ms              |
-| 60x60     | 1ms              |
-| 90x90     | 3ms              |
-| 120x120   | 6ms              |
-| 500x500   | 98ms             |
-| 1000x1000 | 409ms            |
 
-It's at first $O(n^2)$ and moreover superfast compared with the previous outcomes.
+| size      | transformation time consumption | iteration time consumption |
+| --------- |---------------------------------|----------------------------|
+| 30x30     | 2ms                             | 0ms                        |
+| 60x60     | 15ms                            | 1ms                        |
+| 90x90     | 65ms                            | 3ms                        |
+| 120x120   | 116ms                           | 6ms                        |
+| 500x500   | 12425ms                         | 98ms                       |
+| 1000x1000 | 153856ms                        | 409ms                      |
+
+The iteration is at first $O(n^2)$ and moreover superfast compared with the previous outcomes, whereby the transformation is not $O(n^3)$ vs. previous $O(n^4)$.
 
 # Retrospective
 

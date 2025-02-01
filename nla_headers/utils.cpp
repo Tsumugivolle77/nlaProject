@@ -36,6 +36,35 @@ namespace nebula {
         return I - 2 * w * wh / dot(wh, w);
     }
 
+    Col<std::complex<double>>
+    compute_householder_vec(const Col<std::complex<double>> &x) {
+        using namespace std::complex_literals;
+
+        auto x1 = x[0];
+        auto phase = std::arg(x1);
+        auto e1      = cx_colvec(x.n_rows);
+        e1[0]        = 1.;
+        const auto I = cx_mat(x.n_rows, x.n_rows, fill::eye);
+
+        const cx_vec w = x + std::exp(1i * phase) * norm(x) * e1;
+
+        return normalise(w);
+    }
+
+    // for real vector
+    Col<double>
+    compute_householder_vec(const Col<double> &x) {
+        auto x1 = x[0];
+        auto e1 = colvec(x.n_rows);
+        e1[0] = 1.;
+        const auto I = mat(x.n_rows, x.n_rows, fill::eye);
+
+        auto sgn = [](auto v) -> auto { return v >= 0 ? 1 : -1; };
+        const vec w = x + sgn(x1) * norm(x) * e1;
+
+        return w;
+    }
+
     mat hermitian_tridiag2sym_tridiag(const cx_mat &H)
     {
         using namespace std::complex_literals;
@@ -84,13 +113,7 @@ namespace nebula {
     {
         using namespace std::complex_literals;
 
-        auto hermitri = to_hessenberg(H);
-
-        for (int i = 2; i < hermitri.n_cols; ++i) {
-            for (int j = 0; j < i - 1; ++j) {
-                hermitri.at(j, i) = 0.;
-            }
-        }
+        auto hermitri = to_hessenberg_optimized(H);
 
         auto rows = hermitri.n_rows;
 

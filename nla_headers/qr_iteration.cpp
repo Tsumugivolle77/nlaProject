@@ -97,14 +97,14 @@ namespace nebula {
         }
 
         vec iteration_with_shift_for_hermitian(const cx_mat &m, uint maxiter) {
-            auto hess = to_hessenberg(m);
+            auto hess = to_hessenberg_optimized(m);
             auto tridiag = hermitian_tridiag2sym_tridiag(hess);
 
             return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
         }
 
         vec iteration_with_shift_for_symmetric(const mat &m, uint maxiter) {
-            auto tridiag = to_hessenberg(m);
+            auto tridiag = to_hessenberg_optimized(m);
 
             return iteration_with_shift_for_real_symmetric_tridiagonal(tridiag, maxiter);
         }

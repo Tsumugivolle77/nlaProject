@@ -14,7 +14,9 @@ namespace nebula::qr {
         std::queue<double> bulge_low{};
         std::queue<double> bulge_upp{};
 
-        auto size = tridiag.size(); {
+        auto size = tridiag.size();
+
+        {
             auto a = tridiag(0, 0) - shift;
             auto b = tridiag(1, 0);
 

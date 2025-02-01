@@ -107,7 +107,7 @@ void test_tridiag(const int size, double tol) {
 
     // A.print("The Elems of A:");
 
-    eig_gen(A).print("Eigenvalues by Armadillo:");
+    // eig_gen(A).print("Eigenvalues by Armadillo:");
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
@@ -126,9 +126,9 @@ void test_tridiag(const int size, double tol) {
     std::cout << "Total time " << duration_cast<milliseconds>(t2 - t0).count() << "ms\n\n";
     // std::cout << "Eigenvalues by my Iteration with Deflation:\n";
     // eigs.print("Eigenvalues by My:");
-    for (auto i : eigs) {
-        std::cout << i << '\n';
-    }
+    // for (auto i : eigs) {
+    //     std::cout << i << '\n';
+    // }
 }
 
 cx_mat create_matrix(const size_t &n, const vec &eigenvalues) {

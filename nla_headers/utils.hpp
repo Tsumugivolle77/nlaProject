@@ -16,6 +16,12 @@ namespace nebula {
     Mat<double>
     get_householder_mat(const Col<double> &x);
 
+    Col<std::complex<double>>
+    compute_householder_vec(const Col<std::complex<double>> &x);
+
+    Col<double>
+    compute_householder_vec(const Col<double> &x);
+
     // get the Hessenberg form of matx
     template<typename M>
     M to_hessenberg(const M &matx) {
@@ -43,6 +49,28 @@ namespace nebula {
         }
 
         return hess;
+    }
+
+    // get the Hessenberg form of matx
+    template<typename M>
+    M to_hessenberg_optimized(const M &matx) {
+        using elem_type = typename M::elem_type;
+
+        if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
+
+        auto res = matx;
+
+        for (int i = 0; i < res.n_cols - 2; ++i) {
+            auto x = Col<elem_type>(res.submat(i + 1, i, res.n_rows - 1, i));
+            auto w = compute_householder_vec(x);
+            Col<elem_type> fullcol { res.n_rows, fill::zeros };
+            fullcol.subvec(i + 1, res.n_rows - 1) = w;
+
+            Mat<elem_type> Qres = res - 2. * fullcol * (res.ht() * fullcol).ht();
+            res = Qres - 2. * (Qres * fullcol) * fullcol.ht();
+        }
+
+        return res;
     }
 
     /*** !!! FOR THE FIRST SUBTASK: converting Hermitian Tridiagonal resulting
