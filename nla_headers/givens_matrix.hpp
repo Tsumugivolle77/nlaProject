@@ -51,7 +51,7 @@ namespace nebula {
 
         auto anorm = std::abs(a);
         auto bnorm = std::abs(b);
-        double r = std::hypot(anorm, bnorm);
+        auto r = std::hypot(anorm, bnorm);
 
         if (bnorm < 1e-10) {
             c = 1.0;

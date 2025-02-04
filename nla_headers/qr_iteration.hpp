@@ -79,7 +79,10 @@ namespace nebula {
 
         template<typename M>
         void step_with_wilkinson_shift(M &hess, const typename M::elem_type &shift) {
-            auto row = hess.n_rows; {
+            auto row = hess.n_rows; 
+            
+            // implicit shift
+            {
                 auto a = hess.at(0, 0) - shift;
                 auto b = hess.at(1, 0);
                 givens_matrix<typename M::elem_type> g{a, b, 0, 1};
@@ -88,6 +91,7 @@ namespace nebula {
                 hess = apply_givens(hess, g.transpose(), applied_to);
             }
 
+            // bulge chasing
             for (uint j = 1; j < row - 1; ++j) {
                 auto a = hess.at(j, j - 1);
                 auto b = hess.at(j + 1, j - 1);

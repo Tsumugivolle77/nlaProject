@@ -8,7 +8,7 @@
 
 void test(const int size, double tol = 1e-6);
 
-void test2(const int size);
+void test_nonsymmetric_iteration(const int size);
 
 void test_tridiag(const int size, double tol = 1e-6);
 

@@ -16,6 +16,7 @@ namespace nebula::qr {
 
         auto size = tridiag.size();
 
+        // implicit shift
         {
             auto a = tridiag(0, 0) - shift;
             auto b = tridiag(1, 0);
@@ -53,7 +54,7 @@ namespace nebula::qr {
             }
         }
 
-
+        // bulge chasing
         for (uint j = 1; j < size - 1; ++j) {
             auto a = tridiag.at(j, j - 1);
             auto b = bulge_low.front();
@@ -66,18 +67,18 @@ namespace nebula::qr {
 
             for (auto &col: applied_to) {
                 double c = g.c, s = g.s;
-                uint _j = g.j, k = g.k;
+                uint k = g.k;
 
                 if (col == j - 1) {
-                    double aj = tridiag.at(_j, col), ak = bulge_low.front();
+                    double aj = tridiag.at(j, col), ak = bulge_low.front();
                     bulge_low.pop();
-                    tridiag(_j, col) = c * aj + s * ak;
+                    tridiag(j, col) = c * aj + s * ak;
                 } else if (col != j + 2) {
-                    double aj = tridiag.at(_j, col), ak = tridiag.at(k, col);
-                    tridiag(_j, col) = c * aj + s * ak;
+                    double aj = tridiag.at(j, col), ak = tridiag.at(k, col);
+                    tridiag(j, col) = c * aj + s * ak;
                     tridiag(k, col) = -s * aj + c * ak;
                 } else {
-                    double aj = tridiag.at(_j, col), ak = tridiag.at(k, col);
+                    double aj = tridiag.at(j, col), ak = tridiag.at(k, col);
                     bulge_upp.push(c * aj + s * ak);
                     tridiag(k, col) = -s * aj + c * ak;
                 }
@@ -85,18 +86,18 @@ namespace nebula::qr {
 
             for (auto &row: applied_to) {
                 double c = gt.c, s = gt.s;
-                uint _j = gt.j, k = gt.k;
+                uint k = gt.k;
 
                 if (row == j - 1) {
-                    double aj = tridiag.at(row, _j), ak = bulge_upp.front();
+                    double aj = tridiag.at(row, j), ak = bulge_upp.front();
                     bulge_upp.pop();
-                    tridiag(row, _j) = c * aj - s * ak;
+                    tridiag(row, j) = c * aj - s * ak;
                 } else if (row != j + 2) {
-                    double aj = tridiag.at(row, _j), ak = tridiag.at(row, k);
-                    tridiag(row, _j) = c * aj - s * ak;
+                    double aj = tridiag.at(row, j), ak = tridiag.at(row, k);
+                    tridiag(row, j) = c * aj - s * ak;
                     tridiag(row, k) = s * aj + c * ak;
                 } else {
-                    double aj = tridiag.at(row, _j), ak = tridiag.at(row, k);
+                    double aj = tridiag.at(row, j), ak = tridiag.at(row, k);
                     bulge_low.push(c * aj - s * ak);
                     tridiag(row, k) = s * aj + c * ak;
                 }
@@ -199,7 +200,7 @@ namespace nebula::qr {
                 submats.pop();
             }
 
-            // if no deflate happens, iterate with the original matrix, don't pop
+            // if no deflation happens, iterate with the original matrix, don't pop
         }
 
         return eigs;

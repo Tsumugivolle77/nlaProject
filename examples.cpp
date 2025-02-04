@@ -5,12 +5,15 @@
 #include "examples.hpp"
 #include "armadillo"
 #include "nebula.hpp"
+#include "utils.hpp"
 
 using namespace arma;
 
 void test(const int size, double tol) {
     using namespace std::complex_literals;
     using namespace arma;
+
+    std::cout << "Testing on real symmetric tridiagonal matrix of size " << size << "...\n";
 
     cx_mat A(size, size, fill::zeros);
 
@@ -50,8 +53,10 @@ void test(const int size, double tol) {
     }
 }
 
-void test2(const int size) {
+void test_nonsymmetric_iteration(const int size) {
     using namespace arma;
+
+    std::cout << "Testing on real nonsymmetric matrix of size " << size << "...\n";
 
     mat B(size, size, fill::zeros);
 
@@ -77,7 +82,7 @@ void test2(const int size) {
     auto eigs = nebula::qr::general_iteration_with_deflation(B);
     auto t2 = high_resolution_clock::now();
 
-    std::cout << "Computation done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
+    std::cout << "\nComputation done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
 
     std::cout << "Eigenvalues by my General Iteration with Deflation:\n";
     for (auto i : eigs) {
@@ -88,6 +93,7 @@ void test2(const int size) {
 void test_tridiag(const int size, double tol) {
     using namespace std::complex_literals;
     using namespace arma;
+    std::cout << "Testing on real symmetric tridiagonal matrix of size " << size << "...\n";
 
     // cx_mat A(size, size, fill::zeros);
     //
@@ -107,28 +113,26 @@ void test_tridiag(const int size, double tol) {
 
     // A.print("The Elems of A:");
 
-    // eig_gen(A).print("Eigenvalues by Armadillo:");
+    eig_gen(A).print("Eigenvalues by Armadillo:");
 
     using std::chrono::high_resolution_clock;
     using std::chrono::duration_cast;
     using std::chrono::milliseconds;
 
     auto t0 = high_resolution_clock::now();
-    auto M = nebula::hermitian_to_tridiag_mat(nebula::to_hessenberg(A));
+    auto M = nebula::hermitian_to_tridiag_mat(nebula::to_hessenberg_optimized(A));
     auto t1 = high_resolution_clock::now();
     auto eigs = nebula::qr::iteration_with_deflation_for_specialized_tridiag(M, tol);
     // auto eigs = nebula::qr::iteration_with_shift_for_hermitian(A);
     auto t2 = high_resolution_clock::now();
 
-    std::cout << "size=" << size << std::endl;
-    std::cout << "Transformation done after " << duration_cast<milliseconds>(t1 - t0).count() << "ms\n";
+    std::cout << "\nTransformation done after " << duration_cast<milliseconds>(t1 - t0).count() << "ms\n";
     std::cout << "Iteration done after " << duration_cast<milliseconds>(t2 - t1).count() << "ms\n";
     std::cout << "Total time " << duration_cast<milliseconds>(t2 - t0).count() << "ms\n\n";
-    // std::cout << "Eigenvalues by my Iteration with Deflation:\n";
-    // eigs.print("Eigenvalues by My:");
-    // for (auto i : eigs) {
-    //     std::cout << i << '\n';
-    // }
+    std::cout << "Eigenvalues by my Iteration with Deflation:\n";
+    for (auto i : eigs) {
+        std::cout << i << '\n';
+    }
 }
 
 cx_mat create_matrix(const size_t &n, const vec &eigenvalues) {

@@ -6,6 +6,7 @@
 #define UTILS_H
 
 #include "tridiag_matrix.hpp"
+#include <stdexcept>
 
 namespace nebula {
     // for complex vector
@@ -27,7 +28,7 @@ namespace nebula {
     M to_hessenberg(const M &matx) {
         using elem_type = typename M::elem_type;
 
-        if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
+        if (matx.n_cols != matx.n_rows) { throw std::invalid_argument("to_hessenberg: not a square matrix"); }
 
         auto hess = matx;
 
@@ -56,7 +57,7 @@ namespace nebula {
     M to_hessenberg_optimized(const M &matx) {
         using elem_type = typename M::elem_type;
 
-        if (matx.n_cols != matx.n_rows) { throw std::runtime_error("nla_mat: not a square matrix"); }
+        if (matx.n_cols != matx.n_rows) { throw std::invalid_argument("to_hessenberg_optimized: not a square matrix"); }
 
         auto res = matx;
 
@@ -66,6 +67,7 @@ namespace nebula {
             Col<elem_type> fullcol { res.n_rows, fill::zeros };
             fullcol.subvec(i + 1, res.n_rows - 1) = w;
 
+            // derived from Algorithm 1.2.8 from Lecture Notes
             Mat<elem_type> Qres = res - 2. * fullcol * (res.ht() * fullcol).ht();
             res = Qres - 2. * (Qres * fullcol) * fullcol.ht();
         }

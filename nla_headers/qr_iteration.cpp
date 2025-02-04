@@ -123,7 +123,7 @@ namespace nebula {
                 double h10 = hess.at(1, 0);
                 auto col0  = hess.col(0);
                 auto col1  = hess.col(1);
-                colvec w   = h00 * col0 + h10 * col1 - s * col0;
+                colvec w   = h00 * col0 + h10 * col1 - s * col0; // Algorithm 2.5.20, simplified version
                 w[0]      += t;
 
                 auto Q = get_householder_mat(w);
